@@ -1,0 +1,17 @@
+{
+  "name": "tapsilat/e-commerce-cart",
+  "description": "E-commerce cart application using Tapsilat PHP SDK",
+  "type": "project",
+  "require": {
+    "php": ">=7.4",
+    "tapsilat/tapsilat-php": "^2025.08.14"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  },
+  "scripts": {
+    "serve": "php -S 0.0.0.0:8000 -t public"
+  }
+}
