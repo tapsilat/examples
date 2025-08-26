@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '5000:5000'
+    volumes:
+      - .:/app
+    environment:
+      - TAPSILAT_API_KEY=${TAPSILAT_API_KEY}
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    working_dir: /app
+    networks:
+      - tapsilat_network
+
+networks:
+  tapsilat_network:
+    driver: bridge
