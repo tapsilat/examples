@@ -699,14 +699,31 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    // Log order details including conversation_id and metadata
+                    console.log('Order created successfully:', {
+                        order_id: result.order_id,
+                        reference_id: result.reference_id,
+                        conversation_id: result.conversation_id,
+                        metadata: result.metadata
+                    });
+
+                    // Store order details in localStorage for potential future use
+                    localStorage.setItem('lastOrder', JSON.stringify({
+                        order_id: result.order_id,
+                        reference_id: result.reference_id,
+                        conversation_id: result.conversation_id,
+                        timestamp: new Date().toISOString(),
+                        metadata: result.metadata
+                    }));
+
                     // Check if checkout_url exists
                     if (result.checkout_url) {
                         // Redirect to checkout URL
                         window.location.href = result.checkout_url;
                     } else {
                         // Handle case where checkout_url is null/empty
-                        console.log('Order created successfully:', result);
-                        showError('Order created but no checkout URL provided. Order ID: ' + (result.order_id || 'Unknown'));
+                        showError('Order created but no checkout URL provided. Order ID: ' + (result.order_id || 'Unknown') +
+                                 '<br>Conversation ID: ' + (result.conversation_id || 'Unknown'));
                     }
                 } else {
                     throw new Error(result.message || 'An error occurred while creating the order');

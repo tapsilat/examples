@@ -10,6 +10,7 @@ from tapsilat_py.models import (
     BasketItemPayerDTO,
     BillingAddressDTO,
     BuyerDTO,
+    MetadataDTO,
     OrderCreateDTO,
     ShippingAddressDTO,
 )
@@ -18,6 +19,53 @@ from tapsilat_py.models import (
 load_dotenv()
 
 app = Flask(__name__)
+
+
+def get_base_url():
+    """Get base URL automatically from request"""
+    return request.host_url.rstrip("/")
+
+
+def generate_conversation_id():
+    """Generate unique conversation ID"""
+    import time
+    import uuid
+
+    timestamp = int(time.time())
+    unique_id = str(uuid.uuid4())[:8]
+    return f"CONV_{timestamp}_{unique_id}"
+
+
+def create_metadata(order_data):
+    """Create metadata from order data"""
+    metadata = []
+
+    # Add cart summary
+    cart_items = len(order_data.get("cart", []))
+    metadata.append(MetadataDTO(key="cart_items_count", value=str(cart_items)))
+
+    # Add installment info
+    installment = order_data.get("installment", 1)
+    metadata.append(MetadataDTO(key="selected_installment", value=str(installment)))
+
+    # Add address info
+    same_address = order_data.get("same_address", True)
+    metadata.append(
+        MetadataDTO(key="same_billing_shipping", value=str(same_address).lower())
+    )
+
+    # Add customer info
+    billing = order_data.get("billing", {})
+    if billing.get("city"):
+        metadata.append(MetadataDTO(key="customer_city", value=billing["city"]))
+
+    # Add application info
+    metadata.append(
+        MetadataDTO(key="application_name", value="Tapsilat Python SDK Example")
+    )
+    metadata.append(MetadataDTO(key="framework", value="Flask"))
+
+    return metadata
 
 
 def get_api_client():
@@ -217,7 +265,16 @@ def api():
         # Use the basket total to ensure consistency - exactly like PHP
         final_total = basket_total
 
-        # Create order with basket items - PHP compatible version but without enabled_installments bug
+        # Generate conversation ID
+        conversation_id = generate_conversation_id()
+
+        # Create metadata
+        metadata = create_metadata(data)
+
+        # Get base URL for payment callbacks
+        base_url = get_base_url()
+
+        # Create order with basket items - enhanced with URLs, conversation_id and metadata
         import time
 
         order = OrderCreateDTO(
@@ -228,17 +285,17 @@ def api():
             basket_items=basket_items,
             billing_address=billing_address,
             checkout_design=None,
-            conversation_id=None,
+            conversation_id=conversation_id,
             # enabled_installments=enabled_installments,  # Commented due to SDK bug
             external_reference_id=f"ORDER_{int(time.time())}",
-            metadata=None,
+            metadata=metadata,
             order_cards=None,
             paid_amount=None,
             partial_payment=None,
-            payment_failure_url=None,
+            payment_failure_url=f"{base_url}/payment/failure",
             payment_methods=None,
             payment_options=None,
-            payment_success_url=None,
+            payment_success_url=f"{base_url}/payment/success",
             payment_terms=None,
             pf_sub_merchant=None,
             shipping_address=shipping_address,
@@ -256,14 +313,22 @@ def api():
             except Exception as e:
                 print("Error getting checkout URL:", str(e))
 
-        # Return success response - exactly like PHP response structure
+        # Return success response - enhanced with conversation_id and metadata info
         return jsonify(
             {
                 "success": True,
                 "order_id": getattr(response, "order_id", None),
                 "reference_id": getattr(response, "reference_id", None),
+                "conversation_id": conversation_id,
                 "checkout_url": checkout_url,
                 "message": "Order created successfully",
+                "metadata": {
+                    "cart_items": len(data.get("cart", [])),
+                    "installment": data.get("installment", 1),
+                    "same_address": data.get("same_address", True),
+                    "payment_success_url": f"{base_url}/payment/success",
+                    "payment_failure_url": f"{base_url}/payment/failure",
+                },
             }
         )
 
@@ -280,6 +345,66 @@ def api():
 
     except Exception as e:
         # PHP compatible error handling
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/payment/success")
+def payment_success():
+    """Payment success callback page"""
+    # Get payment details from query parameters
+    reference_id = request.args.get("reference_id")
+    conversation_id = request.args.get("conversation_id")
+
+    return render_template(
+        "payment_success.html",
+        reference_id=reference_id,
+        conversation_id=conversation_id,
+    )
+
+
+@app.route("/payment/failure")
+def payment_failure():
+    """Payment failure callback page"""
+    # Get payment details from query parameters
+    reference_id = request.args.get("reference_id")
+    conversation_id = request.args.get("conversation_id")
+    error_message = request.args.get("error_message", "Payment failed")
+
+    return render_template(
+        "payment_failure.html",
+        reference_id=reference_id,
+        conversation_id=conversation_id,
+        error_message=error_message,
+    )
+
+
+@app.route("/api/payment/status/<reference_id>")
+def get_payment_status(reference_id):
+    """Get payment status API endpoint"""
+    try:
+        client = get_api_client()
+        status = client.get_order_status(reference_id)
+
+        return jsonify(
+            {
+                "success": True,
+                "reference_id": reference_id,
+                "status": status,
+                "message": "Payment status retrieved successfully",
+            }
+        )
+
+    except APIException as e:
+        return jsonify(
+            {
+                "success": False,
+                "message": f"Tapsilat API Error: {getattr(e, 'error', str(e))}",
+                "code": getattr(e, "code", None),
+                "status_code": getattr(e, "status_code", None),
+            }
+        ), 400
+
+    except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
 
