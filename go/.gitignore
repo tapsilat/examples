@@ -1,0 +1,10 @@
+.env
+/logs/
+*.log
+.DS_Store
+vendor/
+tmp/
+*.tmp
+*.swp
+*.swo
+*~
