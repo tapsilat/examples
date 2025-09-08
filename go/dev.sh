@@ -96,7 +96,7 @@ start_container() {
     print_status "Starting development container..."
     docker-compose up -d
     print_success "Development container started!"
-    print_status "Application is running at: http://localhost:8080"
+    print_status "Application is running at: http://localhost:5005"
     print_status "Use '$0 logs' to see container logs"
     print_status "Use '$0 shell' to access the container"
 }
@@ -156,7 +156,7 @@ run_dev() {
     print_status "Installing dependencies..."
     go mod tidy
     print_status "Starting application..."
-    print_status "Application will be available at: http://localhost:8080"
+    print_status "Application will be available at: http://localhost:5005"
     go run main.go
 }
 
