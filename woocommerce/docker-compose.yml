@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress_site
+    restart: unless-stopped
+    ports:
+      - '8092:80'
+    environment:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress_password
+      WORDPRESS_DB_NAME: wordpress_db
+      WORDPRESS_TABLE_PREFIX: wp_
+      WORDPRESS_DEBUG: 'true'
+      # PHP Configuration
+      PHP_INI_SCAN_DIR: "/usr/local/etc/php/conf.d:/usr/local/etc/php/custom.d"
+    volumes:
+      - ./wordpress:/var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - wordpress_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    entrypoint: >
+      bash -c "
+        # PHP konfigürasyonunu oluştur
+        mkdir -p /usr/local/etc/php/custom.d
+        cat > /usr/local/etc/php/custom.d/custom.ini << 'EOF'
+        file_uploads = On
+        memory_limit = 256M
+        upload_max_filesize = 64M
+        post_max_size = 64M
+        max_execution_time = 300
+        EOF
+        
+        # Eklenti kurulum işlemini arka planda çalıştır
+        (
+          # Git'i sessizce kur
+          apt-get update > /dev/null 2>&1 && apt-get install -y git > /dev/null 2>&1
+          
+          # wp-content/plugins dizini oluşana kadar bekle
+          while [ ! -d '/var/www/html/wp-content/plugins' ]; do
+            sleep 3
+          done
+          
+          # Tapsilat eklentisini çek
+          cd /var/www/html/wp-content/plugins
+          if [ ! -d 'tapsilat-woocommerce' ]; then
+            git clone https://github.com/tapsilat/tapsilat-woocommerce.git > /dev/null 2>&1
+            chown -R www-data:www-data tapsilat-woocommerce
+          fi
+        ) &
+        
+        # WordPress'i normal şekilde başlat
+        exec docker-entrypoint.sh apache2-foreground
+      "
+
+  mysql:
+    image: mysql:8.0
+    container_name: wordpress_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wordpress_db
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - wordpress_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: wordpress_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - '8093:80'
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root_password
+    depends_on:
+      - mysql
+    networks:
+      - wordpress_network
+
+volumes:
+  mysql_data:
+
+networks:
+  wordpress_network:
+    driver: bridge
