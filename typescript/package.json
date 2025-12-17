@@ -1,0 +1,19 @@
+{
+  "name": "tapsilat-typescript-example",
+  "version": "1.0.0",
+  "description": "Example usage of Tapsilat JS SDK",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node --esm src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@tapsilat/tapsilat-js": "^2025.12.19"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
