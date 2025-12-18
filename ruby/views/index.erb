@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tapsilat Ruby Dashboard</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #f8f9fa;
+        overflow-x: hidden;
+      }
+      .sidebar {
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
+        background-color: #2c3e50;
+        color: #ecf0f1;
+        padding-top: 20px;
+        transition: all 0.3s;
+        z-index: 1000;
+      }
+      .sidebar .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        margin: 5px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        padding: 10px 15px;
+      }
+      .sidebar .nav-link:hover,
+      .sidebar .nav-link.active {
+        color: white;
+        background-color: #34495e;
+        transform: translateX(5px);
+      }
+      .sidebar .brand {
+        font-size: 1.5rem;
+        font-weight: bold;
+        padding: 0 20px;
+        margin-bottom: 30px;
+        display: block;
+        color: white;
+        text-decoration: none;
+      }
+      .main-content {
+        margin-left: 260px;
+        padding: 30px;
+      }
+      .copy-btn {
+        color: #6c757d;
+        cursor: pointer;
+        transition: color 0.2s;
+      }
+      .copy-btn:hover {
+        color: #0d6efd;
+      }
+      .card {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        border: none;
+        margin-bottom: 20px;
+      }
+      .tab-view {
+        display: none;
+        animation: fadeIn 0.3s;
+      }
+      .tab-view.active {
+        display: block;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Shop Wizard Styles within Shop View */
+      .shop-step {
+        display: none;
+      }
+      .shop-step.active {
+        display: block;
+      }
+      .shop-indicator {
+        display: flex;
+        margin-bottom: 20px;
+        justify-content: center;
+      }
+      .shop-ind-item {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #eee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 10px;
+        font-weight: bold;
+        color: #777;
+      }
+      .shop-ind-item.active {
+        background: #0d6efd;
+        color: white;
+      }
+
+      /* Console Style */
+      #webhook-console {
+        background: #1e1e1e;
+        color: #00ff00;
+        font-family: "Courier New", Courier, monospace;
+        padding: 15px;
+        height: 400px;
+        overflow-y: auto;
+        border-radius: 5px;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <a href="#" class="brand"><i class="fas fa-boxes"></i> Tapsilat</a>
+      <div class="nav flex-column">
+        <a class="nav-link active" onclick="switchView('shop', this)"
+          ><i class="fas fa-shopping-cart me-2"></i> New Order</a
+        >
+        <a class="nav-link" onclick="switchView('orders', this)"
+          ><i class="fas fa-list me-2"></i> Order List</a
+        >
+        <a class="nav-link" onclick="switchView('subscriptions', this)"
+          ><i class="fas fa-sync me-2"></i> Subscriptions</a
+        >
+        <a class="nav-link" onclick="switchView('terms', this)"
+          ><i class="fas fa-file-invoice-dollar me-2"></i> Payment Terms</a
+        >
+
+        <a class="nav-link" onclick="switchView('webhooks', this)"
+          ><i class="fas fa-broadcast-tower me-2"></i> Webhook Monitor</a
+        >
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- SHOP VIEW -->
+      <div id="view-shop" class="tab-view active">
+        <h2>Create New Order</h2>
+        <div class="card p-4">
+          <div class="shop-indicator">
+            <div class="shop-ind-item active" id="si-1">1</div>
+            <div class="shop-ind-item" id="si-2">2</div>
+            <div class="shop-ind-item" id="si-3">3</div>
+          </div>
+
+          <!-- 1. Cart -->
+          <!-- 1. Cart & Options -->
+          <div id="shop-step-1" class="shop-step active">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4>Order Details & Settings</h4>
+              <button
+                class="btn btn-sm btn-outline-secondary"
+                onclick="randomizeShopValues()"
+              >
+                <i class="fas fa-random"></i> Randomize
+              </button>
+            </div>
+
+            <!-- Core Settings -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">General Settings</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Conversation ID</label>
+                    <input type="text" class="form-control" id="shop-conv-id" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-control" id="shop-desc" />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Locale</label>
+                    <select class="form-select" id="shop-locale">
+                      <option value="tr">TR</option>
+                      <option value="en">EN</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Currency</label>
+                    <select class="form-select" id="shop-currency">
+                      <option value="TRY">TRY</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">3D Secure</label>
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="shop-3d"
+                        checked
+                      />
+                      <label class="form-check-label">Force 3D</label>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Installment</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="shop-installment-count"
+                      value="1"
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">All Pay Methods</label>
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="shop-pm"
+                        checked
+                      />
+                      <label class="form-check-label">Enable All</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Advanced Settings -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">Advanced Configuration</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-12">
+                    <label class="form-label">Enabled Installments</label>
+                    <div
+                      id="shop-installments-checks"
+                      class="d-flex gap-3 flex-wrap"
+                    >
+                      <!-- JS Injected -->
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Payment Options</label>
+                    <div class="d-flex gap-3">
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          value="card"
+                          id="po-card"
+                          checked
+                        />
+                        <label class="form-check-label" for="po-card"
+                          >Card</label
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          value="bank_transfer"
+                          id="po-bank"
+                          checked
+                        />
+                        <label class="form-check-label" for="po-bank"
+                          >Bank Transfer</label
+                        >
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Metadata (Key:Value)</label>
+                    <div id="shop-metadata-list" class="mb-2"></div>
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      onclick="addMetadataRow()"
+                    >
+                      + Add Metadata
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mb-3">
+              <div
+                class="card-header d-flex justify-content-between align-items-center"
+              >
+                <span>Basket Items</span>
+                <button
+                  class="btn btn-sm btn-outline-primary"
+                  onclick="addCartItem()"
+                >
+                  + Add Item
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>Product Name</th>
+                      <th style="width: 120px">Price</th>
+                      <th style="width: 80px">Qty</th>
+                      <th style="width: 50px"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="cart-items-body">
+                    <!-- Items injected here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="text-end border-top pt-3">
+              <h4 class="mb-3">
+                Total: <span id="cart-total-display">₺0.00</span>
+              </h4>
+              <button class="btn btn-primary" onclick="validateStep1()">
+                Proceed to Address
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Address -->
+          <div id="shop-step-2" class="shop-step">
+            <h4>Billing Information</h4>
+            <form id="billing-form">
+              <div class="row">
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="contact_name"
+                    value="John Doe"
+                    placeholder="Name"
+                  />
+                </div>
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="email"
+                    value="john@example.com"
+                    placeholder="Email"
+                  />
+                </div>
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="contact_phone"
+                    value="5551234567"
+                    placeholder="Phone"
+                  />
+                </div>
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="vat_number"
+                    value="11111111111"
+                    placeholder="VAT/Identity"
+                  />
+                </div>
+                <div class="col-12 mb-2">
+                  <input
+                    class="form-control"
+                    name="address"
+                    value="Besiktas Main St"
+                    placeholder="Address"
+                  />
+                </div>
+                <div class="col-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="city"
+                    value="Istanbul"
+                    placeholder="City"
+                  />
+                </div>
+                <div class="col-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="zip_code"
+                    value="34000"
+                    placeholder="Zip"
+                  />
+                </div>
+                <div class="col-12 mt-2">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="same-address"
+                      checked
+                    />
+                    <label class="form-check-label" for="same-address">
+                      Shipping address same as billing
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </form>
+            <button class="btn btn-secondary" onclick="toShopStep(1)">
+              Back
+            </button>
+            <button class="btn btn-primary" onclick="toShopStep(3)">
+              Proceed to Payment
+            </button>
+          </div>
+
+          <!-- 3. Payment -->
+          <div id="shop-step-3" class="shop-step">
+            <h4>Payment Options</h4>
+            <div class="mb-3">
+              <label>Installments:</label>
+              <select class="form-select" id="shop-installment">
+                <option value="1">Cash (1)</option>
+                <option value="2">2 Installments</option>
+                <option value="3">3 Installments</option>
+                <option value="6">6 Installments</option>
+                <option value="12">12 Installments</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="toShopStep(2)">
+              Back
+            </button>
+            <button class="btn btn-success" onclick="createOrder()">
+              Complete Order
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORDERS VIEW -->
+      <div id="view-orders" class="tab-view">
+        <h2 class="d-flex justify-content-between align-items-center">
+          Order Management
+          <button class="btn btn-primary btn-sm" onclick="fetchOrders()">
+            Refresh List
+          </button>
+        </h2>
+
+        <!-- Filter Bar -->
+        <div class="card p-3 mb-3 bg-light">
+          <form onsubmit="event.preventDefault(); fetchOrders(1);">
+            <div class="row g-2">
+              <div class="col-md-3">
+                <label>Date Range</label>
+                <div class="input-group">
+                  <input
+                    type="date"
+                    class="form-control form-control-sm"
+                    id="filter-start"
+                  />
+                  <input
+                    type="date"
+                    class="form-control form-control-sm"
+                    id="filter-end"
+                  />
+                </div>
+              </div>
+              <div class="col-md-2">
+                <label>Org ID</label>
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  id="filter-org"
+                  placeholder="Organization ID"
+                />
+              </div>
+              <div class="col-md-2">
+                <label>Related Ref ID</label>
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  id="filter-ref"
+                  placeholder="Ref ID"
+                />
+              </div>
+              <div class="col-md-2">
+                <label>Page</label>
+                <div class="input-group input-group-sm">
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="order-page"
+                    value="1"
+                    min="1"
+                  />
+                  <select class="form-select" id="order-per-page">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-secondary btn-sm w-100">
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Reference ID</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="orders-table-body">
+                  <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">
+                      Loading...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer d-flex justify-content-between">
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              onclick="changeOrderPage(-1)"
+            >
+              Previous
+            </button>
+            <span id="order-page-info">Page 1</span>
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              onclick="changeOrderPage(1)"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+
+        <!-- Detail Modal -->
+        <div class="modal fade" id="orderDetailModal" tabindex="-1">
+          <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">
+                  Order Details:
+                  <span
+                    id="detail-id"
+                    class="text-primary font-monospace"
+                  ></span>
+                </h5>
+                <button
+                  class="btn btn-sm btn-outline-secondary ms-2"
+                  onclick="copyText('detail-id')"
+                >
+                  <i class="fas fa-copy"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <!-- Management Actions -->
+                <div
+                  class="alert alert-light border d-flex gap-2 justify-content-end mb-4"
+                >
+                  <button
+                    class="btn btn-danger btn-sm"
+                    onclick="actionOrder('cancel')"
+                  >
+                    <i class="fas fa-ban"></i> Cancel Order
+                  </button>
+                  <button
+                    class="btn btn-warning btn-sm"
+                    onclick="actionOrder('refund')"
+                  >
+                    <i class="fas fa-undo"></i> Refund Order
+                  </button>
+                </div>
+
+                <div class="row">
+                  <!-- Basic Info -->
+                  <div class="col-md-6 mb-4">
+                    <h6>Basic Info</h6>
+                    <table class="table table-sm table-bordered">
+                      <tbody id="detail-basic"></tbody>
+                    </table>
+                  </div>
+                  <!-- Raw Data -->
+                  <div class="col-md-6 mb-4">
+                    <h6>Raw Data</h6>
+                    <pre
+                      id="detail-raw"
+                      style="max-height: 200px; font-size: 0.8em"
+                    ></pre>
+                  </div>
+                </div>
+
+                <!-- Transactions -->
+                <h6 class="border-bottom pb-2 mt-2">Transactions</h6>
+                <div id="detail-transactions" class="mb-4 text-muted">
+                  Loading transactions...
+                </div>
+
+                <!-- Terms -->
+                <h6 class="border-bottom pb-2 mt-2">Payment Terms</h6>
+                <div class="text-end mb-2">
+                  <button
+                    class="btn btn-sm btn-success"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#new-term-form"
+                  >
+                    + Add Term
+                  </button>
+                </div>
+                <div class="collapse mb-3" id="new-term-form">
+                  <div class="card card-body bg-light">
+                    <form onsubmit="createTerm(event)">
+                      <div class="input-group">
+                        <input
+                          type="number"
+                          name="amount"
+                          class="form-control"
+                          placeholder="Amount"
+                          step="0.01"
+                          required
+                        />
+                        <input
+                          type="date"
+                          name="due_date"
+                          class="form-control"
+                          required
+                        />
+                        <button class="btn btn-primary">Create</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+                <div id="detail-terms" class="mb-4 text-muted">
+                  Fetch terms manually if needed (API limited on pure list)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBSCRIPTIONS VIEW -->
+      <div id="view-subscriptions" class="tab-view">
+        <h2>Subscriptions</h2>
+        <div class="row">
+          <div class="col-md-4">
+            <div class="card p-3">
+              <h4>New Subscription</h4>
+              <form onsubmit="createSubscription(event)">
+                <input
+                  class="form-control mb-2"
+                  name="name"
+                  value="Gold Plan"
+                  placeholder="Title"
+                  required
+                />
+                <input
+                  type="number"
+                  class="form-control mb-2"
+                  name="amount"
+                  value="49.90"
+                  step="0.01"
+                  placeholder="Amount"
+                  required
+                />
+                <select class="form-select mb-3" name="period">
+                  <option value="1">Monthly</option>
+                  <option value="12">Yearly</option>
+                </select>
+                <button class="btn btn-primary w-100">Create & Pay</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card p-3">
+              <h4>
+                List
+                <button
+                  class="btn btn-sm btn-light float-end"
+                  onclick="fetchSubscriptions()"
+                >
+                  Refresh
+                </button>
+              </h4>
+              <div id="subs-list" class="list-group list-group-flush">
+                <div class="text-center py-3">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMS VIEW (Direct) -->
+      <div id="view-terms" class="tab-view">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2>Payment Terms Scanner</h2>
+          <button class="btn btn-primary" onclick="fetchTerms()">
+            Scan Last 100 Orders
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover">
+                <thead>
+                  <tr>
+                    <th>Term Ref ID</th>
+                    <th>Order Ref ID</th>
+                    <th>Amount</th>
+                    <th>Required</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="terms-table-body">
+                  <tr>
+                    <td colspan="6" class="text-center">
+                      Click "Scan" to load terms from recent orders.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBMERCHANTS VIEW -->
+
+      <!-- WEBHOOK MONITOR -->
+      <div id="view-webhooks" class="tab-view">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2>Webhook Monitor</h2>
+          <button class="btn btn-secondary" onclick="fetchWebhooks()">
+            <i class="fas fa-sync-alt"></i> Refresh List
+          </button>
+        </div>
+        <p class="text-muted">
+          Webhooks are saved to `webhooks/` folder. Click refresh to list them.
+        </p>
+
+        <div class="card">
+          <div class="card-header bg-dark text-white">Received Callbacks</div>
+          <div
+            class="card-body p-0"
+            id="webhook-list"
+            style="height: 500px; overflow-y: auto"
+          >
+            <div class="p-4 text-center text-muted">
+              Click Refresh to load data.
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // --- UTILS ---
+      const show = (id) =>
+        document.getElementById(id).classList.remove("d-none");
+      const hide = (id) => document.getElementById(id).classList.add("d-none");
+      const copyText = (id) => {
+        const text =
+          document.getElementById(id).innerText ||
+          document.getElementById(id).value;
+        navigator.clipboard.writeText(text);
+        alert("Copied: " + text);
+      };
+
+      // --- NAVIGATION ---
+      function switchView(viewName, el) {
+        console.log(`[Navigation] Switching to view: ${viewName}`);
+        document
+          .querySelectorAll(".sidebar .nav-link")
+          .forEach((el) => el.classList.remove("active"));
+        if (el) el.classList.add("active");
+
+        document
+          .querySelectorAll(".tab-view")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById("view-" + viewName).classList.add("active");
+
+        if (viewName === "orders") fetchOrders();
+        if (viewName === "subscriptions") fetchSubscriptions();
+        if (viewName === "subscriptions") fetchSubscriptions();
+        if (viewName === "terms") fetchTerms();
+        if (viewName === "shop") {
+          renderCart();
+          initShopUI();
+        }
+      }
+
+      // --- SHOP LOGIC ---
+      let cart = [{ id: 1, name: "Premium Widget", price: 100.0, quantity: 1 }];
+
+      function renderCart() {
+        const tbody = document.getElementById("cart-items-body");
+        tbody.innerHTML = "";
+        let total = 0;
+
+        cart.forEach((item, index) => {
+          total += item.price * item.quantity;
+          tbody.innerHTML += `
+                <tr>
+                    <td><input type="text" class="form-control form-control-sm" value="${item.name}" onchange="updateCartItem(${index}, 'name', this.value)"></td>
+                    <td><input type="number" class="form-control form-control-sm" value="${item.price}" onchange="updateCartItem(${index}, 'price', this.value)"></td>
+                    <td><input type="number" class="form-control form-control-sm" value="${item.quantity}" min="1" onchange="updateCartItem(${index}, 'quantity', this.value)"></td>
+                    <td><button class="btn btn-sm btn-link text-danger" onclick="removeCartItem(${index})"><i class="fas fa-trash"></i></button></td>
+                </tr>
+              `;
+        });
+
+        if (cart.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="4" class="text-center text-muted">Cart is empty</td></tr>';
+        }
+
+        document.getElementById("cart-total-display").innerText =
+          "₺" + total.toFixed(2);
+      }
+
+      function addCartItem() {
+        const id = cart.length > 0 ? Math.max(...cart.map((i) => i.id)) + 1 : 1;
+        cart.push({ id: id, name: "New Product", price: 50.0, quantity: 1 });
+        renderCart();
+      }
+
+      function removeCartItem(index) {
+        cart.splice(index, 1);
+        renderCart();
+      }
+
+      function updateCartItem(index, field, value) {
+        if (field === "price" || field === "quantity") {
+          cart[index][field] = parseFloat(value);
+        } else {
+          cart[index][field] = value;
+        }
+        renderCart();
+      }
+
+      function validateStep1() {
+        if (cart.length === 0) {
+          alert("Cart cannot be empty!");
+          return;
+        }
+        toShopStep(2);
+      }
+
+      function toShopStep(step) {
+        console.log(`[Shop] Moved to step ${step}`);
+        document
+          .querySelectorAll(".shop-step")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById("shop-step-" + step).classList.add("active");
+        for (let i = 1; i <= 3; i++) {
+          const el = document.getElementById("si-" + i);
+          if (i <= step) el.classList.add("active");
+          else el.classList.remove("active");
+        }
+      }
+
+      // Init logic
+      const possibleInstallments = [1, 2, 3, 6, 9, 12];
+
+      function initShopUI() {
+        const instDiv = document.getElementById("shop-installments-checks");
+        instDiv.innerHTML = possibleInstallments
+          .map(
+            (i) => `
+             <div class="form-check">
+                 <input class="form-check-input inst-check" type="checkbox" value="${i}" id="inst-${i}" checked>
+                 <label class="form-check-label" for="inst-${i}">${i}</label>
+             </div>
+          `
+          )
+          .join("");
+
+        randomizeShopValues();
+      }
+
+      function addMetadataRow(key = "", val = "") {
+        const div = document.createElement("div");
+        div.className = "input-group mb-1 metadata-row";
+        div.innerHTML = `
+              <input type="text" class="form-control form-control-sm" placeholder="Key" value="${key}">
+              <input type="text" class="form-control form-control-sm" placeholder="Value" value="${val}">
+              <button class="btn btn-outline-danger btn-sm" onclick="this.parentElement.remove()">X</button>
+           `;
+        document.getElementById("shop-metadata-list").appendChild(div);
+      }
+
+      function randomizeShopValues() {
+        // Random Strings
+        document.getElementById("shop-conv-id").value =
+          "CONV_" +
+          Math.floor(Date.now() / 1000) +
+          "_" +
+          Math.floor(Math.random() * 1000);
+        document.getElementById("shop-desc").value =
+          "Random Order " + new Date().toISOString();
+
+        // Random Selects
+        const locales = ["tr", "en"];
+        document.getElementById("shop-locale").value =
+          locales[Math.floor(Math.random() * locales.length)];
+
+        const currencies = ["TRY", "USD", "EUR"];
+        document.getElementById("shop-currency").value =
+          currencies[Math.floor(Math.random() * currencies.length)];
+
+        // Random Booleans
+        document.getElementById("shop-3d").checked = Math.random() > 0.5;
+        document.getElementById("shop-pm").checked = Math.random() > 0.5;
+
+        // Random Installments
+        document.querySelectorAll(".inst-check").forEach((el) => {
+          el.checked = Math.random() > 0.3; // 70% chance enabled
+        });
+
+        // Random Metadata
+        const metaDiv = document.getElementById("shop-metadata-list");
+        metaDiv.innerHTML = "";
+        const metaCount = Math.floor(Math.random() * 3);
+        for (let i = 0; i < metaCount; i++) {
+          addMetadataRow(
+            "meta_key_" + i,
+            "val_" + Math.floor(Math.random() * 100)
+          );
+        }
+
+        // Random Cart
+        cart = [];
+        const itemCount = 1 + Math.floor(Math.random() * 3);
+        for (let i = 1; i <= itemCount; i++) {
+          cart.push({
+            id: i,
+            name: "Random Product " + i,
+            price: parseFloat((Math.random() * 1000).toFixed(2)),
+            quantity: 1 + Math.floor(Math.random() * 2),
+          });
+        }
+        renderCart();
+      }
+
+      async function createOrder() {
+        console.group("[Create Order] Initiated");
+        const formData = new FormData(document.getElementById("billing-form"));
+
+        // Collect Installments
+        const enabledInst = Array.from(
+          document.querySelectorAll(".inst-check:checked")
+        ).map((cb) => parseInt(cb.value));
+
+        // Collect Payment Options
+        const paymentOpts = [];
+        if (document.getElementById("po-card").checked)
+          paymentOpts.push("card");
+        if (document.getElementById("po-bank").checked)
+          paymentOpts.push("bank_transfer");
+
+        // Collect Metadata
+        const meta = [];
+        document.querySelectorAll(".metadata-row").forEach((row) => {
+          const inputs = row.querySelectorAll("input");
+          if (inputs[0].value)
+            meta.push({ key: inputs[0].value, value: inputs[1].value });
+        });
+
+        const billingData = Object.fromEntries(formData);
+        console.log("[Input] Billing Data:", billingData);
+
+        const data = {
+          cart: cart,
+          billing: billingData,
+          installment:
+            parseInt(document.getElementById("shop-installment-count").value) ||
+            1,
+          conversation_id: document.getElementById("shop-conv-id").value,
+          description: document.getElementById("shop-desc").value,
+          locale: document.getElementById("shop-locale").value,
+          currency: document.getElementById("shop-currency").value,
+          three_d_force: document.getElementById("shop-3d").checked,
+          payment_methods: document.getElementById("shop-pm").checked,
+          enabled_installments: enabledInst,
+          payment_options: paymentOpts,
+          metadata: meta,
+        };
+
+        console.log(
+          "[Payload] Full Request Data to be Sent:",
+          JSON.stringify(data, null, 2)
+        );
+
+        // If same address checked
+        if (document.getElementById("same-address").checked) {
+          data.same_address = true;
+          console.log(
+            "[Info] Same Address checked, shipping address will match billing."
+          );
+        } else {
+          // If separate shipping logic exists, log it here
+          data.same_address = false;
+        }
+
+        try {
+          console.log("[Network] Sending POST /api...");
+          const res = await fetch("/api", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+
+          console.log("[Network] Response Status:", res.status);
+          const json = await res.json();
+          console.log("[Response] Received Data:", json);
+          console.groupEnd();
+
+          if (json.checkout_url) {
+            console.log(
+              "[Success] Redirecting to Checkout:",
+              json.checkout_url
+            );
+            window.location.href = json.checkout_url;
+          } else {
+            console.error("[Error] No checkout URL in response:", json);
+            alert("Error: " + (json.error || "Unknown error"));
+          }
+        } catch (e) {
+          console.error("[Exception] Fetch failed:", e);
+          console.groupEnd();
+          alert("Request failed: " + e.message);
+        }
+      }
+
+      // --- ORDERS LOGIC ---
+      async function fetchOrders(pageOverride) {
+        let page = pageOverride || document.getElementById("order-page").value;
+        if (page < 1) page = 1;
+        document.getElementById("order-page").value = page;
+
+        const perPage = document.getElementById("order-per-page").value;
+        const start = document.getElementById("filter-start").value;
+        const end = document.getElementById("filter-end").value;
+        const org = document.getElementById("filter-org").value;
+        const ref = document.getElementById("filter-ref").value;
+
+        const query = new URLSearchParams({
+          page,
+          per_page: perPage,
+          start_date: start,
+          end_date: end,
+          organization_id: org,
+          related_reference_id: ref,
+        });
+
+        console.log(`[Orders] Fetching list with query: ${query.toString()}`);
+        const res = await fetch("/api/order/list?" + query);
+        const json = await res.json();
+        console.log(
+          "[Orders] Fetch success. Items:",
+          json.rows ? json.rows.length : 0
+        );
+        if (json.rows && json.rows.length > 0) {
+          console.log("[Orders] First item sample:", json.rows[0]);
+        }
+
+        document.getElementById("order-page-info").innerText = "Page " + page;
+
+        const tbody = document.getElementById("orders-table-body");
+        if (!json.rows || json.rows.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="5" class="text-center p-3">No orders found (or API not returning rows)</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = json.rows
+          .map(
+            (o) => `
+            <tr style="cursor: pointer" onclick="showOrderDetail('${
+              o.reference_id
+            }')">
+                <td class="font-monospace text-primary">${o.reference_id}</td>
+                <td>${o.created_at || "-"}</td>
+                <td>${o.total || o.amount + " " + (o.currency || "")}</td>
+                <td><span class="badge bg-${getStatusColor(
+                  o.status_enum || o.status
+                )}">${o.status_enum || getStatusText(o.status)}</span></td>
+                <td><button class="btn btn-sm btn-light">View</button></td>
+            </tr>
+        `
+          )
+          .join("");
+      }
+
+      function changeOrderPage(delta) {
+        let cur = parseInt(document.getElementById("order-page").value);
+        fetchOrders(cur + delta);
+      }
+
+      function getStatusColor(s) {
+        if (!s) return "secondary";
+        s = String(s).toLowerCase();
+        if (s.includes("succ") || s.includes("paid")) return "success";
+        if (s.includes("fail") || s.includes("cancel")) return "danger";
+        return "warning";
+      }
+
+      function getStatusText(s) {
+        const map = {
+          1: "Received",
+          2: "Unpaid",
+          3: "Paid",
+          4: "Processing",
+          5: "Shipped",
+          6: "OnHold",
+          7: "Payment",
+          8: "Cancelled",
+          9: "Completed",
+          10: "Refunded",
+          13: "Failure",
+          17: "Disapproved",
+          18: "Errored",
+        };
+        return map[parseInt(s)] || s;
+      }
+
+      let currentOrderRef = "";
+
+      async function showOrderDetail(refId) {
+        console.log(`[Orders] Viewing details for: ${refId}`);
+        currentOrderRef = refId;
+        const modal = new bootstrap.Modal(
+          document.getElementById("orderDetailModal")
+        );
+        document.getElementById("detail-id").innerText = refId;
+
+        // Fix Aria Focus issue
+        const modalEl = document.getElementById("orderDetailModal");
+        modalEl.removeAttribute("aria-hidden");
+
+        modal.show();
+
+        const res = await fetch("/api/order/details/" + refId);
+        const detail = await res.json();
+
+        document.getElementById("detail-basic").innerHTML = `
+            <tr><th>Amount</th><td>${detail.amount} ${detail.currency}</td></tr>
+            <tr><th>Description</th><td>${detail.description || "-"}</td></tr>
+            <tr><th>Conversation ID</th><td>${detail.conversation_id}</td></tr>
+            <tr><th>Status</th><td>${detail.status}</td></tr>
+            <tr><th>Payment Status</th><td>${
+              detail.payment_status || "-"
+            }</td></tr>
+        `;
+        document.getElementById("detail-raw").innerText = JSON.stringify(
+          detail,
+          null,
+          2
+        );
+
+        fetch("/api/order/transactions/" + refId)
+          .then((r) => r.json())
+          .then((txs) => {
+            console.log(`[Orders] Transactions for ${refId}:`, txs);
+            const txDiv = document.getElementById("detail-transactions");
+            if (!txs || Object.keys(txs).length === 0) {
+              txDiv.innerHTML = "No transactions.";
+              return;
+            }
+            txDiv.innerHTML = "<pre>" + JSON.stringify(txs, null, 2) + "</pre>";
+          });
+      }
+
+      async function actionOrder(action) {
+        if (!confirm(action + " this order?")) return;
+        console.log(
+          `[Orders] Action '${action}' initiated for ${currentOrderRef}`
+        );
+        const url = action === "cancel" ? "/api/cancel" : "/api/refund";
+        const body = { reference_id: currentOrderRef };
+        if (action === "refund") {
+          const amt = prompt("Refund Amount (Leave empty for full):");
+          if (amt) body.amount = amt;
+        }
+
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            body: JSON.stringify(body),
+            headers: { "Content-Type": "application/json" },
+          });
+          const json = await res.json();
+          console.log(`[Orders] Action '${action}' result:`, json);
+          alert("Result: " + JSON.stringify(json));
+          showOrderDetail(currentOrderRef);
+        } catch (e) {
+          console.error(`[Orders] Action '${action}' failed:`, e);
+          alert("Error: " + e);
+        }
+      }
+
+      async function createTerm(e) {
+        e.preventDefault();
+        alert(
+          "Create term logic implemented in backend but needs Order ID linking."
+        );
+      }
+
+      // --- SUBSCRIPTIONS LOGIC ---
+      async function fetchSubscriptions() {
+        console.log("[Subscriptions] Fetching list...");
+        const res = await fetch("/api/subscription/list");
+        const json = await res.json();
+        console.log("[Subscriptions] Result:", json);
+        const list = document.getElementById("subs-list");
+
+        if (!json.rows || json.rows.length === 0) {
+          list.innerHTML =
+            '<div class="p-3 text-center">No subscriptions found.</div>';
+          return;
+        }
+
+        list.innerHTML = `
+             <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Reference ID</th>
+                            <th>Status Detail</th>
+                            <th>Status (API)</th>
+                            <th>Amount</th>
+                            <th>Period</th>
+                            <th>Payment</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${json.rows
+                          .map(
+                            (s) => `
+                            <tr>
+                                <td class="font-monospace text-primary">${
+                                  s.reference_id
+                                } <i class="fas fa-copy copy-btn" onclick="navigator.clipboard.writeText('${
+                              s.reference_id
+                            }')"></i></td>
+                                <td>
+                                    ${
+                                      s.is_active
+                                        ? '<span class="badge bg-success">Active</span>'
+                                        : '<span class="badge bg-danger">Inactive</span>'
+                                    }
+                                </td>
+                                <td><span class="badge bg-secondary">${
+                                  s.payment_status || "N/A"
+                                }</span></td>
+                                <td>${s.amount || "-"} ${
+                              s.currency || "TRY"
+                            }</td>
+                                <td>${s.period || "1"}</td>
+                                <td>
+                                    ${
+                                      s.checkout_url
+                                        ? `<a href="${s.checkout_url}" target="_blank" class="btn btn-sm btn-success">Pay Link</a>`
+                                        : "-"
+                                    }
+                                </td>
+                                <td><button class="btn btn-sm btn-outline-danger" onclick="cancelSub('${
+                                  s.reference_id
+                                }')">Cancel</button></td>
+                            </tr>
+                        `
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+      }
+
+      async function createSubscription(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        data = Object.fromEntries(formData);
+        data.amount = parseFloat(data.amount);
+        data.period = parseInt(data.period);
+        data.subscriber_email = "test@sub.com";
+        data.subscriber_phone = "5559876543";
+
+        console.log("[Subscriptions] Creating with data:", data);
+        const res = await fetch("/api/subscription", {
+          method: "POST",
+          body: JSON.stringify(data),
+          headers: { "Content-Type": "application/json" },
+        });
+        const json = await res.json();
+        console.log("[Subscriptions] Creation result:", json);
+        if (json.checkout_url) {
+          if (confirm("Subscription Created! Pay now?"))
+            window.open(json.checkout_url, "_blank");
+        } else {
+          alert("Created: " + json.reference_id);
+        }
+        fetchSubscriptions();
+      }
+
+      async function cancelSub(id) {
+        if (
+          !confirm("Are you sure you want to cancel subscription " + id + "?")
+        )
+          return;
+        console.log("[Subscriptions] Cancelling:", id);
+        try {
+          const res = await fetch("/api/subscription/cancel", {
+            method: "POST",
+            body: JSON.stringify({ subscription_id: id }),
+            headers: { "Content-Type": "application/json" },
+          });
+          const json = await res.json();
+
+          if (res.ok) {
+            console.log("[Subscriptions] Cancelled successfully.");
+            alert("Subscription Cancelled Successfully!");
+          } else {
+            console.error("[Subscriptions] Cancel failed:", json);
+            alert("Failed to cancel: " + (json.error || "Unknown error"));
+          }
+        } catch (e) {
+          console.error("[Subscriptions] Network error:", e);
+          alert("Network error: " + e.message);
+        }
+        fetchSubscriptions();
+      }
+
+      // --- TERMS LOGIC ---
+      async function fetchTerms() {
+        const tbody = document.getElementById("terms-table-body");
+        tbody.innerHTML =
+          '<tr><td colspan="6" class="text-center">Scanning last 100 orders for terms...</td></tr>';
+
+        try {
+          // fetch last 100 orders to find terms
+          const res = await fetch("/api/order/list?per_page=100");
+          const json = await res.json();
+          let termsFound = [];
+
+          if (json.rows) {
+            json.rows.forEach((o) => {
+              if (o.payment_terms && o.payment_terms.length > 0) {
+                o.payment_terms.forEach((t) =>
+                  termsFound.push({ order: o.reference_id, term: t })
+                );
+              }
+            });
+          }
+
+          renderTermsTable(termsFound);
+        } catch (e) {
+          console.error(e);
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Scan failed: ${e.message}</td></tr>`;
+        }
+      }
+
+      function renderTermsTable(terms) {
+        const tbody = document.getElementById("terms-table-body");
+        if (!tbody) return;
+
+        if (terms.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="text-center text-muted">No payment terms found in recent orders.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = terms
+          .map((t) => {
+            return `<tr>
+                      <td class="font-monospace">${
+                        t.term.term_reference_id || "-"
+                      }</td>
+                      <td class="font-monospace"><a href="#" onclick="showOrderDetail('${
+                        t.order
+                      }')">${t.order}</a></td>
+                      <td>${t.term.amount || "-"}</td>
+                      <td>${
+                        t.term.required
+                          ? '<span class="badge bg-danger">Required</span>'
+                          : '<span class="badge bg-secondary">Optional</span>'
+                      }</td>
+                      <td>${t.term.status || "-"}</td>
+                      <td>
+                          <button class="btn btn-sm btn-danger" onclick="deleteTerm('${
+                            t.order
+                          }', '${t.term.term_reference_id}')">Delete</button>
+                      </td>
+                   </tr>`;
+          })
+          .join("");
+      }
+
+      async function createTerm(e) {
+        e.preventDefault();
+
+        if (!currentOrderRef) {
+          alert("No order selected!");
+          return;
+        }
+
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+
+        // Prepare payload correctly
+        const payload = {
+          order_reference_id: currentOrderRef,
+          amount: parseFloat(data.amount),
+          due_date: data.due_date,
+          required: data.required === "true",
+          data: JSON.stringify({ note: "Manually created term" }), // Example additional data
+        };
+
+        console.log("[Terms] Creating term:", payload);
+
+        try {
+          const res = await fetch("/api/term/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+          console.log("[Terms] Create result:", json);
+
+          if (res.ok) {
+            alert("Payment Term Created!");
+            e.target.reset(); // Clear form
+            // Ideally refresh terms list inside modal if we had one
+          } else {
+            alert("Creation failed: " + (json.error || "Unknown error"));
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Network error: " + err.message);
+        }
+      }
+
+      async function deleteTerm(orderId, termId) {
+        if (!confirm("Delete term " + termId + "?")) return;
+        try {
+          const res = await fetch("/api/term/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              order_id: orderId,
+              term_reference_id: termId,
+            }),
+          });
+          const json = await res.json();
+          if (res.ok) {
+            alert("Term Deleted!");
+            fetchTerms(); // Refresh list
+          } else {
+            alert("Delete failed: " + json.error);
+          }
+        } catch (e) {
+          alert("Error: " + e.message);
+        }
+      }
+
+      // Mapping the onclick
+      window.fetchTerms = fetchTerms;
+
+      // --- WEBHOOK MONITOR LOGIC ---
+
+      async function fetchWebhooks() {
+        const listDiv = document.getElementById("webhook-list");
+        listDiv.innerHTML = '<div class="text-center">Loading...</div>';
+
+        try {
+          const res = await fetch("/api/webhooks");
+          const logs = await res.json();
+
+          if (!logs || logs.length === 0) {
+            listDiv.innerHTML =
+              '<div class="p-4 text-center text-muted">No webhooks recorded yet.</div>';
+            return;
+          }
+
+          listDiv.innerHTML = '<div class="list-group list-group-flush">';
+          logs.forEach((log) => {
+            listDiv.innerHTML += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="mb-0 text-truncate" title="${
+                              log.filename
+                            }">${log.filename}</h6>
+                            <small class="text-muted">RAW</small>
+                        </div>
+                        <pre class="bg-light p-2 mb-0" style="font-size:0.75rem; max-height: 150px; overflow:auto;">${JSON.stringify(
+                          log.content,
+                          null,
+                          2
+                        )}</pre>
+                    </div>
+                 `;
+          });
+          listDiv.innerHTML += "</div>";
+        } catch (e) {
+          listDiv.innerHTML = `<div class="text-danger">Error: ${e.message}</div>`;
+        }
+      }
+
+      function toggleWebhook(start) {
+        // Deprecated but kept for button compatibility if needed, though we will replace button
+        if (start) fetchWebhooks();
+      }
+    </script>
+  </body>
+</html>

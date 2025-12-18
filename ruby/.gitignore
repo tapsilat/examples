@@ -1,0 +1,4 @@
+.env
+webhooks/
+*.log
+.DS_Store
