@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tapsilat Java Pro Dashboard</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --sidebar-bg: #1a1c23;
+        --sidebar-hover: #2d313d;
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      body {
+        background-color: #f0f2f5;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        overflow-x: hidden;
+      }
+      .sidebar {
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        background-color: var(--sidebar-bg);
+        color: #fff;
+        padding-top: 25px;
+        z-index: 1000;
+        box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+      }
+      .nav-link {
+        color: #a0aec0;
+        margin: 8px 15px;
+        border-radius: 12px;
+        padding: 12px 20px;
+        transition: all 0.3s;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        border: 1px solid transparent;
+      }
+      .nav-link:hover {
+        color: #fff;
+        background: var(--sidebar-hover);
+        transform: translateX(5px);
+      }
+      .nav-link.active {
+        color: #fff;
+        background: var(--primary-gradient);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+      .main-content {
+        margin-left: 280px;
+        padding: 40px;
+        min-height: 100vh;
+      }
+      .card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s;
+      }
+      .tab-view {
+        display: none;
+        animation: slideUp 0.4s ease-out;
+      }
+      .tab-view.active {
+        display: block;
+      }
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .webhook-console {
+        background: #0d1117;
+        color: #58a6ff;
+        font-family: "Fira Code", monospace;
+        padding: 20px;
+        height: 500px;
+        overflow-y: auto;
+        border-radius: 15px;
+        border: 1px solid #30363d;
+        font-size: 0.85em;
+      }
+      .status-badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.8em;
+        text-transform: uppercase;
+      }
+      .badge-success {
+        background: #def7ec;
+        color: #03543f;
+      }
+      .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .badge-danger {
+        background: #fde8e8;
+        color: #9b1c1c;
+      }
+      .wizard-step {
+        display: none;
+      }
+      .wizard-step.active {
+        display: block;
+        animation: fadeIn 0.3s;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="sidebar">
+      <div class="px-4 mb-5">
+        <h3 class="fw-bold">TAPSILAT JAVA</h3>
+      </div>
+      <div class="nav flex-column px-2">
+        <a class="nav-link active" onclick="switchView('shop', this)"
+          ><i class="fas fa-shopping-bag me-3"></i> Marketplace</a
+        >
+        <a class="nav-link" onclick="switchView('orders', this)"
+          ><i class="fas fa-receipt me-3"></i> Orders</a
+        >
+        <a class="nav-link" onclick="switchView('subscriptions', this)"
+          ><i class="fas fa-calendar-check me-3"></i> Subscriptions</a
+        >
+        <a class="nav-link" onclick="switchView('terms', this)"
+          ><i class="fas fa-file-invoice-dollar me-3"></i> Payment Terms</a
+        >
+        <a class="nav-link" onclick="switchView('webhooks', this)"
+          ><i class="fas fa-terminal me-3"></i> Webhook Monitor</a
+        >
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <!-- SHOP VIEW -->
+      <div id="view-shop" class="tab-view active">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h1 class="h2 fw-bold">Checkout Wizard</h1>
+          <button
+            class="btn btn-outline-primary rounded-pill py-2 px-4"
+            onclick="randomizeData()"
+          >
+            <i class="fas fa-magic me-2"></i> Randomize Data
+          </button>
+        </div>
+
+        <div class="card p-5">
+          <!-- Wizard Progress -->
+          <div class="d-flex justify-content-center mb-5">
+            <div
+              id="prog-1"
+              class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-3"
+              style="width: 45px; height: 45px"
+            >
+              1
+            </div>
+            <div
+              id="prog-2"
+              class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-3"
+              style="width: 45px; height: 45px"
+            >
+              2
+            </div>
+            <div
+              id="prog-3"
+              class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-3"
+              style="width: 45px; height: 45px"
+            >
+              3
+            </div>
+          </div>
+
+          <div id="step-1" class="wizard-step active">
+            <h4 class="mb-4">1. Order Configuration</h4>
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Currency</label
+                ><select class="form-select" id="shop-currency">
+                  <option>TRY</option>
+                  <option>USD</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Locale</label
+                ><select class="form-select" id="shop-locale">
+                  <option value="tr">TR</option>
+                  <option value="en">EN</option>
+                </select>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label fw-bold">Description</label
+                ><input
+                  type="text"
+                  class="form-control"
+                  id="shop-desc"
+                  value="Marketplace Purchase"
+                />
+              </div>
+              <div class="col-md-6">
+                <div class="form-check form-switch mt-4">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="shop-3d"
+                    checked
+                  /><label class="form-check-label fw-bold"
+                    >Force 3D Secure</label
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="text-end mt-5">
+              <button
+                class="btn btn-primary btn-lg px-5 rounded-pill"
+                onclick="nextStep(2)"
+              >
+                Continue to Delivery <i class="fas fa-chevron-right ms-2"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="step-2" class="wizard-step">
+            <h4 class="mb-4">2. Billing & Shipping</h4>
+            <form id="billing-form">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <input
+                    class="form-control"
+                    name="contact_name"
+                    value="Atakan Argin"
+                    placeholder="Full Name"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <input
+                    class="form-control"
+                    name="email"
+                    value="atakan@example.com"
+                    placeholder="Email"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <input
+                    class="form-control"
+                    name="contact_phone"
+                    value="5301234567"
+                    placeholder="Phone"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <input
+                    class="form-control"
+                    name="city"
+                    value="Istanbul"
+                    placeholder="City"
+                  />
+                </div>
+                <div class="col-12">
+                  <textarea
+                    class="form-control"
+                    name="address"
+                    placeholder="Address"
+                  >
+Levent, Kanyon Plaza 4/5</textarea
+                  >
+                </div>
+                <div class="col-md-6">
+                  <input
+                    class="form-control"
+                    name="vat_number"
+                    value="11111111111"
+                    placeholder="VAT/ID Number"
+                  />
+                </div>
+              </div>
+            </form>
+            <div class="d-flex justify-content-between mt-5">
+              <button
+                class="btn btn-light btn-lg px-4 rounded-pill"
+                onclick="nextStep(1)"
+              >
+                Back
+              </button>
+              <button
+                class="btn btn-primary btn-lg px-5 rounded-pill"
+                onclick="nextStep(3)"
+              >
+                Review & Pay <i class="fas fa-chevron-right ms-2"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="step-3" class="wizard-step">
+            <h4 class="mb-4">3. Summary</h4>
+            <div class="alert alert-info py-4 rounded-4">
+              <div
+                class="d-flex justify-content-between align-items-center mb-2"
+              >
+                <span>Test Product x1</span><span class="fw-bold">₺150.00</span>
+              </div>
+              <div
+                class="d-flex justify-content-between align-items-center h4 mt-3 pt-3 border-top"
+              >
+                <span>Total Due</span
+                ><span class="text-primary fw-bold">₺150.00</span>
+              </div>
+            </div>
+            <div class="d-flex justify-content-between mt-5">
+              <button
+                class="btn btn-light btn-lg px-4 rounded-pill"
+                onclick="nextStep(2)"
+              >
+                Back
+              </button>
+              <button
+                class="btn btn-success btn-lg px-5 rounded-pill shadow"
+                onclick="createOrder()"
+              >
+                Secure Checkout <i class="fas fa-lock ms-2"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORDERS VIEW -->
+      <div id="view-orders" class="tab-view">
+        <h1 class="h2 fw-bold mb-4">Orders Management</h1>
+        <div class="card mb-4 bg-white">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted"
+                  >Related Ref ID</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="f-related"
+                  placeholder="Related Ref ID"
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted"
+                  >Buyer ID</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="f-buyer"
+                  placeholder="Buyer ID"
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted"
+                  >Org ID</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="f-org"
+                  placeholder="Organization ID"
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted"
+                  >Start Date</label
+                >
+                <input type="date" class="form-control" id="f-start" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted"
+                  >End Date</label
+                >
+                <input type="date" class="form-control" id="f-end" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted"
+                  >&nbsp;</label
+                >
+                <button class="btn btn-primary w-100" onclick="fetchOrders(1)">
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div
+              class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top"
+            >
+              <div class="d-flex align-items-center">
+                <span class="me-2 small text-muted">Per Page:</span>
+                <select
+                  id="f-per-page"
+                  class="form-select form-select-sm"
+                  style="width: 70px"
+                  onchange="fetchOrders(1)"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+              <div class="d-flex align-items-center">
+                <button
+                  class="btn btn-sm btn-outline-secondary me-2"
+                  onclick="prevPage()"
+                  id="btn-prev"
+                  disabled
+                >
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="small fw-bold mx-2" id="page-display">Page 1</span>
+                <button
+                  class="btn btn-sm btn-outline-secondary ms-2"
+                  onclick="nextPage()"
+                  id="btn-next"
+                >
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light text-muted small text-uppercase fw-bold">
+              <tr>
+                <th class="ps-4">Reference</th>
+                <th>Created At</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th class="text-end pe-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SUBSCRIPTIONS VIEW -->
+      <div id="view-subscriptions" class="tab-view">
+        <h1 class="h2 fw-bold mb-4">Recurring Billing</h1>
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="card p-4">
+              <h4 class="mb-4">New Subscription</h4>
+              <form id="sub-form">
+                <label class="form-label small text-muted fw-bold"
+                  >Plan Name</label
+                >
+                <input
+                  class="form-control mb-3"
+                  name="name"
+                  value="Premium SaaS"
+                />
+                <label class="form-label small text-muted fw-bold"
+                  >Amount (Monthly)</label
+                >
+                <div class="input-group mb-4">
+                  <span class="input-group-text">₺</span
+                  ><input
+                    type="number"
+                    class="form-control"
+                    name="amount"
+                    value="299.99"
+                    step="0.01"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-primary w-100 py-3 rounded-4 shadow"
+                  onclick="createSub()"
+                >
+                  Activate Plan
+                </button>
+              </form>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card p-4">
+              <h4 class="mb-4 d-flex justify-content-between">
+                Active Users
+                <button class="btn btn-sm btn-light" onclick="fetchSubs()">
+                  <i class="fas fa-sync"></i>
+                </button>
+              </h4>
+              <div id="subs-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMS VIEW -->
+      <div id="view-terms" class="tab-view">
+        <h1 class="h2 fw-bold mb-4">Payment Terms</h1>
+        <div
+          class="card mb-4 bg-warning bg-opacity-10 border-warning border-opacity-25"
+        >
+          <div
+            class="card-body d-flex justify-content-between align-items-center"
+          >
+            <div>
+              <h5 class="mb-1 text-warning-emphasis">Batch Scan Terms</h5>
+              <p class="mb-0 text-muted small">
+                Fetch and manage installment terms from recent orders.
+              </p>
+            </div>
+            <button class="btn btn-warning px-4" onclick="fetchTerms()">
+              Start Scan
+            </button>
+          </div>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="table mb-0">
+            <thead class="table-light small fw-bold">
+              <tr>
+                <th>Reference</th>
+                <th>Due Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="terms-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- WEBHOOK VIEW -->
+      <div id="view-webhooks" class="tab-view">
+        <h1 class="h2 fw-bold mb-4">Live Webhook Monitor</h1>
+        <div class="card overflow-hidden">
+          <div
+            class="card-header bg-white py-3 d-flex justify-content-between align-items-center"
+          >
+            <span class="fw-bold"
+              ><i class="fas fa-circle text-success me-2 animate-pulse"></i>
+              Monitoring Webhooks...</span
+            >
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              onclick="fetchLogs()"
+            >
+              Clear Console
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div id="webhook-console" class="webhook-console"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Detailed Modal -->
+    <div class="modal fade" id="detailModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content rounded-4 shadow-lg">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold">Order Details</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body p-4"><div id="modal-content"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // NAVIGATION
+      function switchView(id, link) {
+        document
+          .querySelectorAll(".tab-view")
+          .forEach((v) => v.classList.remove("active"));
+        document.getElementById(`view-${id}`).classList.add("active");
+        document
+          .querySelectorAll(".nav-link")
+          .forEach((l) => l.classList.remove("active"));
+        link.classList.add("active");
+        if (id === "orders") fetchOrders(1);
+        if (id === "subscriptions") fetchSubs();
+        if (id === "webhooks") fetchLogs();
+      }
+
+      // wizard
+      function nextStep(n) {
+        document
+          .querySelectorAll(".wizard-step")
+          .forEach((s) => s.classList.remove("active"));
+        document.getElementById(`step-${n}`).classList.add("active");
+        document
+          .querySelectorAll('[id^="prog-"]')
+          .forEach(
+            (p) =>
+              (p.className =
+                "rounded-circle bg-light d-flex align-items-center justify-content-center mx-3")
+          );
+        for (let i = 1; i <= n; i++)
+          document.getElementById(`prog-${i}`).className =
+            "rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-3";
+      }
+
+      // CREATE ORDER
+      async function createOrder() {
+        const billing = Object.fromEntries(
+          new FormData(document.getElementById("billing-form"))
+        );
+        const data = {
+          cart: [{ name: "Test Product", price: 150.0, quantity: 1 }],
+          billing: billing,
+          currency: document.getElementById("shop-currency").value,
+          locale: document.getElementById("shop-locale").value,
+          three_d_force: document.getElementById("shop-3d").checked,
+          payment_methods: true,
+        };
+        const res = await fetch("/api/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const result = await res.json();
+        if (result.success) window.location.href = result.checkout_url;
+        else alert(result.message);
+      }
+
+      // FETCH ORDERS
+      let currentPage = 1;
+
+      async function fetchOrders(page) {
+        if (page) currentPage = page;
+
+        const perPage = document.getElementById("f-per-page").value;
+        const relatedParam = document.getElementById("f-related").value;
+        const buyerParam = document.getElementById("f-buyer").value;
+        const orgParam = document.getElementById("f-org").value;
+        const startParam = document.getElementById("f-start").value;
+        const endParam = document.getElementById("f-end").value;
+
+        // Build Query String
+        let qs = `page=${currentPage}&per_page=${perPage}`;
+        if (relatedParam) qs += `&related_reference_id=${relatedParam}`;
+        if (buyerParam) qs += `&buyer_id=${buyerParam}`;
+        if (orgParam) qs += `&organization_id=${orgParam}`;
+        if (startParam) qs += `&start_date=${startParam}`;
+        if (endParam) qs += `&end_date=${endParam}`;
+
+        const res = await fetch(`/api/order/list?${qs}`);
+        const data = await res.json();
+        const body = document.getElementById("orders-body");
+        body.innerHTML = "";
+
+        const list = data.rows || data.data || [];
+
+        // Update Pagination UI
+        document.getElementById(
+          "page-display"
+        ).innerText = `Page ${currentPage}`;
+        document.getElementById("btn-prev").disabled = currentPage <= 1;
+        // Simple check: if we got less items than per_page, we are likely on the last page.
+        // Or if the API returns total pages, we could use that. Assuming list length check for now.
+        document.getElementById("btn-next").disabled =
+          list.length < parseInt(perPage);
+
+        if (list.length === 0) {
+          body.innerHTML =
+            '<tr><td colspan="5" class="text-center py-4 text-muted">No orders found.</td></tr>';
+          return;
+        }
+
+        list.forEach((o) => {
+          const amount =
+            o.total || (o.total_amount ? `₺${o.total_amount}` : "0.00");
+          const date = o.created_at
+            ? new Date(o.created_at).toLocaleString()
+            : "N/A";
+          const statusStr =
+            typeof o.status === "number" ? `Code: ${o.status}` : o.status;
+          const statusClass =
+            o.status === "PAID" || o.status === 3 ? "success" : "warning";
+
+          body.innerHTML += `<tr>
+                    <td class="ps-4 fw-bold text-primary font-monospace">${o.reference_id}</td>
+                    <td>${date}</td>
+                    <td class="fw-bold">${amount}</td>
+                    <td><span class="status-badge badge-${statusClass}">${statusStr}</span></td>
+                    <td class="text-end pe-4"><button class="btn btn-sm btn-light" onclick="showDetails('${o.reference_id}')">Inspect</button></td>
+                </tr>`;
+        });
+      }
+
+      function prevPage() {
+        if (currentPage > 1) fetchOrders(currentPage - 1);
+      }
+
+      function nextPage() {
+        fetchOrders(currentPage + 1);
+      }
+
+      // WEBHOOK LOGS
+      async function fetchLogs() {
+        const res = await fetch("/api/webhooks");
+        const data = await res.json();
+        const consoleEl = document.getElementById("webhook-console");
+        consoleEl.innerHTML =
+          data
+            .map(
+              (log) => `
+                <div class="mb-3">
+                    <div class="text-muted small border-bottom border-secondary pb-1 mb-1">File: ${
+                      log.filename
+                    }</div>
+                    <pre class="m-0">${JSON.stringify(
+                      log.content || log.raw,
+                      null,
+                      2
+                    )}</pre>
+                </div>
+            `
+            )
+            .join("") || "Waiting for webhooks... (Listening on /api/callback)";
+      }
+
+      // MOCK LOGIC FOR OTHERS TO SHOW ALL WORK
+      function randomizeData() {
+        const names = ["Alice Nova", "Bob Matrix", "Charlie Flux"];
+        const cities = ["Istanbul", "Ankara", "Izmir"];
+        const form = document.getElementById("billing-form");
+        form.contact_name.value =
+          names[Math.floor(Math.random() * names.length)];
+        form.city.value = cities[Math.floor(Math.random() * cities.length)];
+      }
+
+      async function createSub() {
+        const form = document.getElementById("sub-form");
+        const data = Object.fromEntries(new FormData(form));
+        data.subscriber_email = "test@user.com";
+        data.subscriber_phone = "5550000000";
+        data.period = 1;
+        const res = await fetch("/api/subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const result = await res.json();
+        if (result.success)
+          alert("Subscription initiated: " + result.reference_id);
+      }
+
+      async function fetchSubs() {
+        const res = await fetch("/api/subscription/list?per_page=5");
+        const data = await res.json();
+        const listEl = document.getElementById("subs-list");
+
+        const list = Array.isArray(data) ? data : data.rows || data.data || [];
+
+        listEl.innerHTML =
+          list.length > 0
+            ? list
+                .map(
+                  (s) => `
+                <div class="d-flex justify-content-between align-items-center border-bottom py-3">
+                    <div><h6 class="mb-0">${
+                      s.title || s.name
+                    }</h6><small class="text-muted">${
+                    s.reference_id
+                  }</small></div>
+                    <span class="badge bg-success">${
+                      s.status || "ACTIVE"
+                    }</span>
+                </div>
+            `
+                )
+                .join("")
+            : '<p class="text-muted text-center py-4">No active subscriptions found.</p>';
+      }
+
+      async function showDetails(id) {
+        const res = await fetch(`/api/order/details/${id}`);
+        const o = await res.json();
+        const modal = new bootstrap.Modal(
+          document.getElementById("detailModal")
+        );
+
+        const buyerName =
+          o.name || (o.buyer ? `${o.buyer.name} ${o.buyer.surname}` : "N/A");
+        const buyerEmail = o.email || (o.buyer ? o.buyer.email : "");
+        const totalDisplay =
+          o.total || (o.total_amount ? `₺${o.total_amount}` : "0.00");
+
+        document.getElementById("modal-content").innerHTML = `
+                <div class="row">
+                    <div class="col-md-6"><h6>Customer</h6><p class="mb-0 fw-bold">${buyerName}</p><p class="text-muted">${buyerEmail}</p></div>
+                    <div class="col-md-6"><h6>Amount</h6><p class="h4 text-primary">${totalDisplay}</p></div>
+                    <hr>
+                    <div class="col-12"><h6>JSON Payload</h6><pre class="bg-light p-3 rounded" style="font-size: 11px">${JSON.stringify(
+                      o,
+                      null,
+                      2
+                    )}</pre></div>
+                </div>
+            `;
+        modal.show();
+      }
+    </script>
+  </body>
+</html>
