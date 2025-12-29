@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["examples/net/Tapsilat.Example.Net.csproj", "examples/net/"]
-COPY ["sdks/Tapsilat-Net/src/Tapsilat.Net/Tapsilat.Net.csproj", "sdks/Tapsilat-Net/src/Tapsilat.Net/"]
+
 RUN dotnet restore "examples/net/Tapsilat.Example.Net.csproj"
 COPY . .
 WORKDIR "/src/examples/net"
