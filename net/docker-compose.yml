@@ -1,0 +1,10 @@
+services:
+  tapsilat-net:
+    build:
+      context: ../../
+      dockerfile: examples/net/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - TAPSILAT_API_KEY=${TAPSILAT_API_KEY}
+      - ASPNETCORE_URLS=http://+:8080
