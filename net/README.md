@@ -1,6 +1,11 @@
 # Tapsilat .NET SDK Example
 
-This project demonstrates the usage of the Tapsilat .NET SDK in an ASP.NET Core MVC application. It mirrors the functionality of the Python and Go examples.
+This project demonstrates the usage of the Tapsilat .NET SDK in an ASP.NET Core MVC application. It features a comprehensive Dashboard UI mirroring the functionality of the Go and Rust examples, including:
+
+- **Order Management**: Create, list, details, cancel, and refund orders.
+- **Subscriptions**: Create, list, and cancel subscriptions.
+- **Payment Terms**: Manage payment terms.
+- **Webhook Monitor**: View incoming webhooks in real-time.
 
 ## Prerequisites
 
