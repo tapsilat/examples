@@ -150,6 +150,7 @@ func main() {
 	// Additional Order Management
 	r.POST("/api/order/terminate", terminateOrderHandler)
 	r.POST("/api/order/manual-callback", manualCallbackHandler)
+	r.GET("/api/organization/settings", getOrganizationSettingsHandler)
 
 	// Ensure webhooks directory exists
 	if _, err := os.Stat("webhooks"); os.IsNotExist(err) {
@@ -1113,4 +1114,22 @@ func manualCallbackHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, response)
+}
+
+// getOrganizationSettingsHandler gets organization settings
+func getOrganizationSettingsHandler(c *gin.Context) {
+	apiClient, err := getAPIClient()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	settings, err := apiClient.GetOrganizationSettings(c.Request.Context())
+	if err != nil {
+		utilsInstance.LogError("Failed to get organization settings", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get organization settings"})
+		return
+	}
+
+	c.JSON(http.StatusOK, settings)
 }
