@@ -85,11 +85,16 @@ public class ApiController {
                     .basketItems(basketItems);
 
             // Handle payment_methods if it's sent as a list or boolean
+            // Handle payment_methods if it's sent as a list or boolean
             Object pm = data.get("payment_methods");
             if (pm instanceof List) {
-                builder.paymentMethods((List<String>) pm);
+                builder.paymentOptions((List<String>) pm);
             } else if (Boolean.TRUE.equals(pm)) {
-                builder.paymentMethods(Arrays.asList("card", "bank_transfer"));
+                builder.paymentMethods(true);
+            }
+
+            if (data.containsKey("payment_options") && data.get("payment_options") instanceof List) {
+                builder.paymentOptions((List<String>) data.get("payment_options"));
             }
 
             if (data.containsKey("enabled_installments")) {
@@ -416,6 +421,15 @@ public class ApiController {
 
     private String resolveBaseUrl(HttpServletRequest request) {
         return request.getRequestURL().toString().replace(request.getRequestURI(), "");
+    }
+
+    @GetMapping("/organization/settings")
+    public ResponseEntity<?> getOrganizationSettings() {
+        try {
+            return ResponseEntity.ok(tapsilatClient.orders().getOrganizationSettings());
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
     }
 
     private ResponseEntity<?> error(String msg) {

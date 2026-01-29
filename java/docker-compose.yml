@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: examples/java/.docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - TAPSILAT_API_KEY=${TAPSILAT_API_KEY}
+    networks:
+      - tapsilat_network
+
+networks:
+  tapsilat_network:
+    driver: bridge
