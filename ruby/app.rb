@@ -58,7 +58,7 @@ get '/' do
 end
 
 # Create Order
-post '/api' do
+post '/api/order' do
   content_type :json
   
   begin
@@ -499,6 +499,19 @@ get '/api/webhooks' do
     end
     
     json(logs)
+  rescue => e
+    json({ error: e.message })
+  end
+end
+
+
+# Organization APIs
+get '/api/organization/settings' do
+  content_type :json
+
+  begin
+    settings = tapsilat_client.organization.settings
+    json(settings)
   rescue => e
     json({ error: e.message })
   end
