@@ -1,746 +1,1210 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tapsilat E-Commerce Cart</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tapsilat Python Dashboard</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
     <style>
-        .product-card {
-            transition: transform 0.2s;
+      body {
+        background-color: #f8f9fa;
+        overflow-x: hidden;
+      }
+      .sidebar {
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
+        background-color: #2c3e50;
+        color: #ecf0f1;
+        padding-top: 20px;
+        transition: all 0.3s;
+        z-index: 1000;
+      }
+      .sidebar .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        margin: 5px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        padding: 10px 15px;
+      }
+      .sidebar .nav-link:hover,
+      .sidebar .nav-link.active {
+        color: white;
+        background-color: #34495e;
+        transform: translateX(5px);
+      }
+      .sidebar .brand {
+        font-size: 1.5rem;
+        font-weight: bold;
+        padding: 0 20px;
+        margin-bottom: 30px;
+        display: block;
+        color: white;
+        text-decoration: none;
+      }
+      .main-content {
+        margin-left: 260px;
+        padding: 30px;
+      }
+      .copy-btn {
+        color: #6c757d;
+        cursor: pointer;
+        transition: color 0.2s;
+      }
+      .copy-btn:hover {
+        color: #0d6efd;
+      }
+      .card {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        border: none;
+        margin-bottom: 20px;
+      }
+      .tab-view {
+        display: none;
+        animation: fadeIn 0.3s;
+      }
+      .tab-view.active {
+        display: block;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
         }
-        .product-card:hover {
-            transform: translateY(-5px);
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
-        .cart-item {
-            border-bottom: 1px solid #eee;
-            padding: 15px 0;
-        }
-        .cart-item:last-child {
-            border-bottom: none;
-        }
-        .quantity-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .quantity-btn {
-            width: 30px;
-            height: 30px;
-            border: 1px solid #ddd;
-            background: #f8f9fa;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-        .quantity-btn:hover {
-            background: #e9ecef;
-        }
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
-        }
-        .step {
-            padding: 10px 20px;
-            margin: 0 5px;
-            background: #f8f9fa;
-            border-radius: 25px;
-            position: relative;
-        }
-        .step.active {
-            background: #007bff;
-            color: white;
-        }
-        .step.completed {
-            background: #28a745;
-            color: white;
-        }
-        .installment-options .form-check {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 8px;
-            transition: all 0.2s;
-        }
-        .installment-options .form-check:hover {
-            border-color: #007bff;
-            background-color: #f8f9fa;
-        }
-        .installment-options .form-check-input:checked + .form-check-label {
-            color: #007bff;
-            font-weight: 600;
-        }
-        .installment-amount {
-            font-size: 0.9em;
-            color: #6c757d;
-            margin-top: 4px;
-        }
+      }
+      .shop-step {
+        display: none;
+      }
+      .shop-step.active {
+        display: block;
+      }
+      .shop-indicator {
+        display: flex;
+        margin-bottom: 20px;
+        justify-content: center;
+      }
+      .shop-ind-item {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #eee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 10px;
+        font-weight: bold;
+        color: #777;
+      }
+      .shop-ind-item.active {
+        background: #0d6efd;
+        color: white;
+      }
+      #webhook-console {
+        background: #1e1e1e;
+        color: #00ff00;
+        font-family: "Courier New", Courier, monospace;
+        padding: 15px;
+        height: 400px;
+        overflow-y: auto;
+        border-radius: 5px;
+        font-size: 0.9em;
+      }
     </style>
-</head>
-<body>
-    <div class="container mt-4">
-        <h1 class="text-center mb-4">
-            <i class="fas fa-shopping-cart"></i> Tapsilat E-Commerce Cart
-        </h1>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <a href="#" class="brand"><i class="fas fa-boxes"></i> Tapsilat Python</a>
+      <div class="nav flex-column">
+        <a class="nav-link active" onclick="switchView('shop', this)"
+          ><i class="fas fa-shopping-cart me-2"></i> New Order</a
+        >
+        <a class="nav-link" onclick="switchView('orders', this)"
+          ><i class="fas fa-list me-2"></i> Order List</a
+        >
+        <a class="nav-link" onclick="switchView('subscriptions', this)"
+          ><i class="fas fa-sync me-2"></i> Subscriptions</a
+        >
+        <a class="nav-link" onclick="switchView('terms', this)"
+          ><i class="fas fa-file-invoice-dollar me-2"></i> Payment Terms</a
+        >
+        <a class="nav-link" onclick="switchView('submerchants', this)"
+          ><i class="fas fa-store me-2"></i> Submerchants</a
+        >
+        <a class="nav-link" onclick="switchView('organization', this)"
+          ><i class="fas fa-building me-2"></i> Organization</a
+        >
+        <a class="nav-link" onclick="switchView('webhooks', this)"
+          ><i class="fas fa-broadcast-tower me-2"></i> Webhook Monitor</a
+        >
+      </div>
+    </nav>
 
-        <!-- Step Indicator -->
-        <div class="step-indicator">
-            <div class="step active" id="step-cart">
-                <i class="fas fa-shopping-cart"></i> Cart
-            </div>
-            <div class="step" id="step-address">
-                <i class="fas fa-map-marker-alt"></i> Address Information
-            </div>
-            <div class="step" id="step-payment">
-                <i class="fas fa-credit-card"></i> Payment
-            </div>
-        </div>
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- SHOP VIEW -->
+      <div id="view-shop" class="tab-view active">
+        <h2>Create New Order</h2>
+        <div class="card p-4">
+          <div class="shop-indicator">
+            <div class="shop-ind-item active" id="si-1">1</div>
+            <div class="shop-ind-item" id="si-2">2</div>
+            <div class="shop-ind-item" id="si-3">3</div>
+          </div>
 
-        <!-- Cart Step -->
-        <div id="cart-step" class="step-content">
-            <div class="row">
-                <!-- Products Section -->
-                <div class="col-md-8">
-                    <h3>Products</h3>
-                    <div class="row" id="products-container">
-                        <!-- Products will be loaded here -->
+          <!-- 1. Cart & Options -->
+          <div id="shop-step-1" class="shop-step active">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4>Order Details & Settings</h4>
+              <button
+                class="btn btn-sm btn-outline-secondary"
+                onclick="randomizeShopValues()"
+              >
+                <i class="fas fa-random"></i> Randomize
+              </button>
+            </div>
+
+            <!-- Core Settings -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">General Settings</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Conversation ID</label>
+                    <input type="text" class="form-control" id="shop-conv-id" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-control" id="shop-desc" />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Locale</label>
+                    <select class="form-select" id="shop-locale">
+                      <option value="tr">TR</option>
+                      <option value="en">EN</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Currency</label>
+                    <select class="form-select" id="shop-currency">
+                      <option value="TRY">TRY</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">3D Secure</label>
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="shop-3d"
+                        checked
+                      />
+                      <label class="form-check-label">Force 3D</label>
                     </div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Installment</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="shop-installment-count"
+                      value="1"
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">All Pay Methods</label>
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="shop-pm"
+                        checked
+                      />
+                      <label class="form-check-label">Enable All</label>
+                    </div>
+                  </div>
                 </div>
-
-                <!-- Cart Section -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-shopping-cart"></i> My Cart</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="cart-items">
-                                <!-- Cart items will be loaded here -->
-                            </div>
-                            <hr>
-
-                            <!-- Installment Options -->
-                            <div class="mb-3">
-                                <label class="form-label"><i class="fas fa-credit-card"></i> Payment Option</label>
-                                <div class="installment-options">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="installment" id="installment-1" value="1" checked>
-                                        <label class="form-check-label" for="installment-1">
-                                            <strong>Cash Payment</strong> <span class="text-success">(0% commission)</span>
-                                        </label>
-                                        <div class="installment-amount" id="amount-1"></div>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="installment" id="installment-2" value="2">
-                                        <label class="form-check-label" for="installment-2">
-                                            <strong>2 Installments</strong>
-                                        </label>
-                                        <div class="installment-amount" id="amount-2"></div>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="installment" id="installment-3" value="3">
-                                        <label class="form-check-label" for="installment-3">
-                                            <strong>3 Installments</strong>
-                                        </label>
-                                        <div class="installment-amount" id="amount-3"></div>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="installment" id="installment-6" value="6">
-                                        <label class="form-check-label" for="installment-6">
-                                            <strong>6 Installments</strong>
-                                        </label>
-                                        <div class="installment-amount" id="amount-6"></div>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="installment" id="installment-12" value="12">
-                                        <label class="form-check-label" for="installment-12">
-                                            <strong>12 Installments</strong>
-                                        </label>
-                                        <div class="installment-amount" id="amount-12"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <hr>
-                            <div class="d-flex justify-content-between">
-                                <strong>Total:</strong>
-                                <strong id="cart-total">₺0.00</strong>
-                            </div>
-                            <button class="btn btn-primary w-100 mt-3" id="proceed-to-address" disabled>
-                                Continue <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Address Step -->
-        <div id="address-step" class="step-content" style="display: none;">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-file-invoice"></i> Billing Address</h5>
-                        </div>
-                        <div class="card-body">
-                            <form id="billing-form">
-                                <div class="mb-3">
-                                    <label class="form-label">Full Name *</label>
-                                    <input type="text" class="form-control" name="contact_name" value="John Doe" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">E-mail *</label>
-                                    <input type="email" class="form-control" name="email" value="john.doe@example.com" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Phone *</label>
-                                    <input type="tel" class="form-control" name="contact_phone" value="05551234567" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Address *</label>
-                                    <textarea class="form-control" name="address" rows="3" required>Besiktas District, Barbaros Boulevard No:123/4</textarea>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">City *</label>
-                                        <input type="text" class="form-control" name="city" value="Istanbul" required>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Postal Code</label>
-                                        <input type="text" class="form-control" name="zip_code" value="34353">
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Tax Number / ID Number *</label>
-                                    <input type="text" class="form-control" name="vat_number" value="12345678901" required>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-truck"></i> Shipping Address</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" id="same-address" checked>
-                                <label class="form-check-label" for="same-address">
-                                    Same as billing address
-                                </label>
-                            </div>
-                            <form id="shipping-form">
-                                <div class="mb-3">
-                                    <label class="form-label">Full Name *</label>
-                                    <input type="text" class="form-control" name="contact_name" value="John Doe" disabled>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Address *</label>
-                                    <textarea class="form-control" name="address" rows="3" disabled>Besiktas District, Barbaros Boulevard No:123/4</textarea>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">City *</label>
-                                        <input type="text" class="form-control" name="city" value="Istanbul" disabled>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Postal Code</label>
-                                        <input type="text" class="form-control" name="zip_code" value="34353" disabled>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Order Summary -->
-                    <div class="card mt-3">
-                        <div class="card-header">
-                            <h5><i class="fas fa-receipt"></i> Order Summary</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="order-summary">
-                                <!-- Order summary will be loaded here -->
-                            </div>
-                            <hr>
-                            <div class="d-flex justify-content-between">
-                                <strong>Total:</strong>
-                                <strong id="order-total">₺0.00</strong>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
 
-            <div class="row mt-3">
-                <div class="col-12 text-center">
-                    <button class="btn btn-secondary me-2" id="back-to-cart">
-                        <i class="fas fa-arrow-left"></i> Back
+            <!-- Advanced Settings -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">Advanced Configuration</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-12">
+                    <label class="form-label">Enabled Installments</label>
+                    <div
+                      id="shop-installments-checks"
+                      class="d-flex gap-3 flex-wrap"
+                    >
+                      <!-- JS Injected -->
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Payment Options</label>
+                    <div class="d-flex gap-3">
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          value="card"
+                          id="po-card"
+                          checked
+                        />
+                        <label class="form-check-label" for="po-card"
+                          >Card</label
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          value="bank_transfer"
+                          id="po-bank"
+                          checked
+                        />
+                        <label class="form-check-label" for="po-bank"
+                          >Bank Transfer</label
+                        >
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Metadata (Key:Value)</label>
+                    <div id="shop-metadata-list" class="mb-2"></div>
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      onclick="addMetadataRow()"
+                    >
+                      + Add Metadata
                     </button>
-                    <button class="btn btn-success" id="create-order">
-                        Complete Order <i class="fas fa-check"></i>
-                    </button>
+                  </div>
                 </div>
+              </div>
             </div>
+
+            <div class="card mb-3">
+              <div
+                class="card-header d-flex justify-content-between align-items-center"
+              >
+                <span>Basket Items</span>
+                <button
+                  class="btn btn-sm btn-outline-primary"
+                  onclick="addCartItem()"
+                >
+                  + Add Item
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>Product Name</th>
+                      <th style="width: 120px">Price</th>
+                      <th style="width: 80px">Qty</th>
+                      <th style="width: 50px"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="cart-items-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="text-end border-top pt-3">
+              <h4 class="mb-3">
+                Total: <span id="cart-total-display">₺0.00</span>
+              </h4>
+              <button class="btn btn-primary" onclick="validateStep1()">
+                Proceed to Address
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Address -->
+          <div id="shop-step-2" class="shop-step">
+            <h4>Billing Information</h4>
+            <form id="billing-form">
+              <div class="row">
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="contact_name"
+                    value="John Doe"
+                    placeholder="Name"
+                  />
+                </div>
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="email"
+                    value="john@example.com"
+                    placeholder="Email"
+                  />
+                </div>
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="contact_phone"
+                    value="5551234567"
+                    placeholder="Phone"
+                  />
+                </div>
+                <div class="col-md-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="vat_number"
+                    value="11111111111"
+                    placeholder="VAT/Identity"
+                  />
+                </div>
+                <div class="col-12 mb-2">
+                  <input
+                    class="form-control"
+                    name="address"
+                    value="Besiktas Main St"
+                    placeholder="Address"
+                  />
+                </div>
+                <div class="col-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="city"
+                    value="Istanbul"
+                    placeholder="City"
+                  />
+                </div>
+                <div class="col-6 mb-2">
+                  <input
+                    class="form-control"
+                    name="zip_code"
+                    value="34000"
+                    placeholder="Zip"
+                  />
+                </div>
+                <div class="col-12 mt-2">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="same-address"
+                      checked
+                    />
+                    <label class="form-check-label" for="same-address">
+                      Shipping address same as billing
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </form>
+            <button class="btn btn-secondary" onclick="toShopStep(1)">
+              Back
+            </button>
+            <button class="btn btn-primary" onclick="toShopStep(3)">
+              Proceed to Payment
+            </button>
+          </div>
+
+          <!-- 3. Payment -->
+          <div id="shop-step-3" class="shop-step">
+            <h4>Payment Options</h4>
+            <div class="mb-3">
+              <label>Installments:</label>
+              <select class="form-select" id="shop-installment">
+                <option value="1">Cash (1)</option>
+                <option value="2">2 Installments</option>
+                <option value="3">3 Installments</option>
+                <option value="6">6 Installments</option>
+                <option value="12">12 Installments</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="toShopStep(2)">
+              Back
+            </button>
+            <button class="btn btn-success" onclick="createOrder()">
+              Complete Order
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORDERS VIEW -->
+      <div id="view-orders" class="tab-view">
+        <h2 class="d-flex justify-content-between align-items-center">
+          Order Management
+          <button class="btn btn-primary btn-sm" onclick="fetchOrders()">
+            Refresh List
+          </button>
+        </h2>
+
+        <!-- Filter Bar -->
+        <div class="card p-3 mb-3 bg-light">
+          <form
+            onsubmit="
+              event.preventDefault();
+              fetchOrders(1);
+            "
+          >
+            <div class="row g-2">
+              <div class="col-md-3">
+                <label>Date Range</label>
+                <div class="input-group">
+                  <input
+                    type="date"
+                    class="form-control form-control-sm"
+                    id="filter-start"
+                  />
+                  <input
+                    type="date"
+                    class="form-control form-control-sm"
+                    id="filter-end"
+                  />
+                </div>
+              </div>
+              <div class="col-md-2">
+                <label>Org ID</label>
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  id="filter-org"
+                  placeholder="Organization ID"
+                />
+              </div>
+              <div class="col-md-2">
+                <label>Related Ref ID</label>
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  id="filter-ref"
+                  placeholder="Ref ID"
+                />
+              </div>
+              <div class="col-md-2">
+                <label>Page</label>
+                <div class="input-group input-group-sm">
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="order-page"
+                    value="1"
+                    min="1"
+                  />
+                  <select class="form-select" id="order-per-page">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-secondary btn-sm w-100">
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
 
-        <!-- Loading Step -->
-        <div id="loading-step" class="step-content text-center" style="display: none;">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Reference ID</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="orders-table-body">
+                  <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">
+                      Loading...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <p class="mt-3">Your order is being created...</p>
+          </div>
+          <div class="card-footer d-flex justify-content-between">
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              onclick="changeOrderPage(-1)"
+            >
+              Previous
+            </button>
+            <span id="order-page-info">Page 1</span>
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              onclick="changeOrderPage(1)"
+            >
+              Next
+            </button>
+          </div>
         </div>
 
-        <!-- Error Modal -->
-        <div class="modal fade" id="errorModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Hata</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body" id="error-message">
-                        <!-- Error message will be shown here -->
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">OK</button>
-                    </div>
+        <!-- Detail Modal -->
+        <div class="modal fade" id="orderDetailModal" tabindex="-1">
+          <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">
+                  Order Details:
+                  <span
+                    id="detail-id"
+                    class="text-primary font-monospace"
+                  ></span>
+                </h5>
+                <button
+                  class="btn btn-sm btn-outline-secondary ms-2"
+                  onclick="copyText('detail-id')"
+                >
+                  <i class="fas fa-copy"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <!-- Management Actions -->
+                <div
+                  class="alert alert-light border d-flex gap-2 justify-content-end mb-4"
+                >
+                  <button
+                    class="btn btn-danger btn-sm"
+                    onclick="actionOrder('cancel')"
+                  >
+                    <i class="fas fa-ban"></i> Cancel Order
+                  </button>
+                  <button
+                    class="btn btn-warning btn-sm"
+                    onclick="actionOrder('refund')"
+                  >
+                    <i class="fas fa-undo"></i> Refund Order
+                  </button>
                 </div>
+
+                <div class="row">
+                  <!-- Basic Info -->
+                  <div class="col-md-6 mb-4">
+                    <h6>Basic Info</h6>
+                    <table class="table table-sm table-bordered">
+                      <tbody id="detail-basic"></tbody>
+                    </table>
+                  </div>
+                  <!-- Raw Data -->
+                  <div class="col-md-6 mb-4">
+                    <h6>Raw Data</h6>
+                    <pre
+                      id="detail-raw"
+                      style="max-height: 200px; font-size: 0.8em"
+                    ></pre>
+                  </div>
+                </div>
+
+                <!-- Transactions -->
+                <h6 class="border-bottom pb-2 mt-2">Transactions</h6>
+                <div id="detail-transactions" class="mb-4 text-muted">
+                  Loading transactions...
+                </div>
+
+                <!-- Terms -->
+                <h6 class="border-bottom pb-2 mt-2">Payment Terms</h6>
+                <div class="text-end mb-2">
+                  <button
+                    class="btn btn-sm btn-success"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#new-term-form"
+                  >
+                    + Add Term
+                  </button>
+                </div>
+                <div class="collapse mb-3" id="new-term-form">
+                  <div class="card card-body bg-light">
+                    <form onsubmit="createTerm(event)">
+                      <div class="input-group">
+                        <input
+                          type="number"
+                          name="amount"
+                          class="form-control"
+                          placeholder="Amount"
+                          step="0.01"
+                          required
+                        />
+                        <input
+                          type="date"
+                          name="due_date"
+                          class="form-control"
+                          required
+                        />
+                        <button class="btn btn-primary">Create</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+                <div id="detail-terms" class="mb-4 text-muted">
+                  Fetch terms manually if needed (API limited on pure list)
+                </div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
+      </div>
+
+      <!-- SUBSCRIPTIONS VIEW -->
+      <div id="view-subscriptions" class="tab-view">
+        <h2>Subscriptions</h2>
+        <div class="row">
+          <div class="col-md-4">
+            <div class="card p-3">
+              <h4>New Subscription</h4>
+              <form onsubmit="createSubscription(event)">
+                <input
+                  class="form-control mb-2"
+                  name="name"
+                  value="Gold Plan"
+                  placeholder="Title"
+                  required
+                />
+                <input
+                  type="number"
+                  class="form-control mb-2"
+                  name="amount"
+                  value="49.90"
+                  step="0.01"
+                  placeholder="Amount"
+                  required
+                />
+                <select class="form-select mb-3" name="period">
+                  <option value="1">Monthly</option>
+                  <option value="12">Yearly</option>
+                </select>
+                <button class="btn btn-primary w-100">Create & Pay</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card p-3">
+              <h4>
+                List
+                <button
+                  class="btn btn-sm btn-light float-end"
+                  onclick="fetchSubscriptions()"
+                >
+                  Refresh
+                </button>
+              </h4>
+              <div id="subs-list" class="list-group list-group-flush">
+                <div class="text-center py-3">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMS VIEW (Direct) -->
+      <div id="view-terms" class="tab-view">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2>Payment Terms Scanner</h2>
+          <button class="btn btn-primary" onclick="fetchTerms()">
+            Scan Last 100 Orders
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover">
+                <thead>
+                  <tr>
+                    <th>Term Ref ID</th>
+                    <th>Order Ref ID</th>
+                    <th>Amount</th>
+                    <th>Required</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="terms-table-body">
+                  <tr>
+                    <td colspan="6" class="text-center">
+                      Click "Scan" to load terms from recent orders.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBMERCHANTS VIEW -->
+      <div id="view-submerchants" class="tab-view">
+        <h2 class="d-flex justify-content-between align-items-center mb-3">
+          Submerchants
+          <button class="btn btn-primary btn-sm" onclick="fetchSubmerchants()">
+            Refresh List
+          </button>
+        </h2>
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Submerchant ID</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="submerchants-table-body">
+                  <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">
+                      Loading...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer d-flex justify-content-between">
+            <button class="btn btn-sm btn-outline-secondary" disabled>
+              Previous
+            </button>
+            <span>Page 1</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled>
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORGANIZATION VIEW -->
+      <div id="view-organization" class="tab-view">
+        <h2 class="mb-4">Organization Settings</h2>
+        <div class="card">
+          <div class="card-body" id="org-settings-body">
+            <div class="text-center py-5">Loading settings...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEBHOOK MONITOR -->
+      <div id="view-webhooks" class="tab-view">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2>Webhook Monitor</h2>
+          <button class="btn btn-secondary" onclick="fetchWebhooks()">
+            <i class="fas fa-sync-alt"></i> Refresh List
+          </button>
+        </div>
+        <p class="text-muted">
+          Webhooks are saved to `webhooks/` folder. Click refresh to list them.
+        </p>
+        <div class="card">
+          <div class="card-header bg-dark text-white">Received Callbacks</div>
+          <div
+            class="card-body p-0"
+            id="webhook-list"
+            style="height: 500px; overflow-y: auto"
+          >
+            <div class="p-4 text-center text-muted">
+              Click Refresh to load data.
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Sample products data
-        const products = [
-            {
-                id: 'product_1',
-                name: 'Wireless Bluetooth Headphones',
-                price: 299.99,
-                icon: 'fas fa-headphones',
-                category: 'Electronics',
-                description: 'High-quality wireless headphones for superior sound experience'
-            },
-            {
-                id: 'product_2',
-                name: 'Smart Watch',
-                price: 899.99,
-                icon: 'fas fa-clock',
-                category: 'Electronics',
-                description: 'Advanced smartwatch with comprehensive features'
-            },
-            {
-                id: 'product_3',
-                name: 'USB-C Charging Cable',
-                price: 79.99,
-                icon: 'fas fa-plug',
-                category: 'Accessories',
-                description: 'Fast charging USB-C cable'
-            },
-            {
-                id: 'product_4',
-                name: 'Wireless Charging Pad',
-                price: 199.99,
-                icon: 'fas fa-battery-half',
-                category: 'Accessories',
-                description: 'Qi standard wireless charging device'
-            },
-            {
-                id: 'product_5',
-                name: 'Bluetooth Speaker',
-                price: 449.99,
-                icon: 'fas fa-volume-up',
-                category: 'Electronics',
-                description: 'Powerful bass and crystal clear sound quality'
-            }
-        ];
+      // --- UTILS ---
+      const show = (id) => document.getElementById(id).classList.remove("d-none");
+      const hide = (id) => document.getElementById(id).classList.add("d-none");
+      const copyText = (id) => {
+        const text = document.getElementById(id).innerText || document.getElementById(id).value;
+        navigator.clipboard.writeText(text);
+        alert("Copied: " + text);
+      };
 
-        let cart = [];
+      // --- NAVIGATION ---
+      function switchView(viewName, el) {
+        console.log(`[Navigation] Switching to view: ${viewName}`);
+        document.querySelectorAll(".sidebar .nav-link").forEach((el) => el.classList.remove("active"));
+        if (el) el.classList.add("active");
+        document.querySelectorAll(".tab-view").forEach((el) => el.classList.remove("active"));
+        document.getElementById("view-" + viewName).classList.add("active");
 
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
-            loadProducts();
-            updateCartDisplay();
-            setupEventListeners();
+        if (viewName === "orders") fetchOrders();
+        if (viewName === "subscriptions") fetchSubscriptions();
+        if (viewName === "terms") fetchTerms();
+        if (viewName === "submerchants") fetchSubmerchants();
+        if (viewName === "organization") fetchOrganizationSettings();
+        if (viewName === "shop") {
+          renderCart();
+          initShopUI();
+        }
+      }
 
-            // Auto-add some items to cart for quick testing
-            setTimeout(() => {
-                addToCart('product_1'); // Bluetooth Headphones
-                addToCart('product_2'); // Smart Watch
-                addToCart('product_3'); // USB-C Cable
-                addToCart('product_3'); // USB-C Cable (second item)
-            }, 500);
+      // --- SHOP LOGIC ---
+      let cart = [{ id: 1, name: "Premium Widget", price: 100.0, quantity: 1 }];
+      function renderCart() {
+        const tbody = document.getElementById("cart-items-body");
+        tbody.innerHTML = "";
+        let total = 0;
+        cart.forEach((item, index) => {
+          total += item.price * item.quantity;
+          tbody.innerHTML += `
+              <tr>
+                  <td><input type="text" class="form-control form-control-sm" value="${item.name}" onchange="updateCartItem(${index}, 'name', this.value)"></td>
+                  <td><input type="number" class="form-control form-control-sm" value="${item.price}" onchange="updateCartItem(${index}, 'price', this.value)"></td>
+                  <td><input type="number" class="form-control form-control-sm" value="${item.quantity}" min="1" onchange="updateCartItem(${index}, 'quantity', this.value)"></td>
+                  <td><button class="btn btn-sm btn-link text-danger" onclick="removeCartItem(${index})"><i class="fas fa-trash"></i></button></td>
+              </tr>`;
         });
+        if (cart.length === 0) tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Cart is empty</td></tr>';
+        document.getElementById("cart-total-display").innerText = "₺" + total.toFixed(2);
+      }
+      function addCartItem() {
+        const id = cart.length > 0 ? Math.max(...cart.map((i) => i.id)) + 1 : 1;
+        cart.push({ id: id, name: "New Product", price: 50.0, quantity: 1 });
+        renderCart();
+      }
+      function removeCartItem(index) {
+        cart.splice(index, 1);
+        renderCart();
+      }
+      function updateCartItem(index, field, value) {
+        if (field === "price" || field === "quantity") cart[index][field] = parseFloat(value);
+        else cart[index][field] = value;
+        renderCart();
+      }
+      function validateStep1() {
+        if (cart.length === 0) { alert("Cart cannot be empty!"); return; }
+        toShopStep(2);
+      }
+      function toShopStep(step) {
+        console.log(`[Shop] Moved to step ${step}`);
+        document.querySelectorAll(".shop-step").forEach((el) => el.classList.remove("active"));
+        document.getElementById("shop-step-" + step).classList.add("active");
+        for (let i = 1; i <= 3; i++) {
+          const el = document.getElementById("si-" + i);
+          if (i <= step) el.classList.add("active");
+          else el.classList.remove("active");
+        }
+      }
+      const possibleInstallments = [1, 2, 3, 6, 9, 12];
+      function initShopUI() {
+        const instDiv = document.getElementById("shop-installments-checks");
+        instDiv.innerHTML = possibleInstallments.map((i) => `
+           <div class="form-check">
+               <input class="form-check-input inst-check" type="checkbox" value="${i}" id="inst-${i}" checked>
+               <label class="form-check-label" for="inst-${i}">${i}</label>
+           </div>`).join("");
+        randomizeShopValues();
+      }
+      function addMetadataRow(key = "", val = "") {
+        const div = document.createElement("div");
+        div.className = "input-group mb-1 metadata-row";
+        div.innerHTML = `
+            <input type="text" class="form-control form-control-sm" placeholder="Key" value="${key}">
+            <input type="text" class="form-control form-control-sm" placeholder="Value" value="${val}">
+            <button class="btn btn-outline-danger" onclick="this.parentElement.remove()">x</button>
+        `;
+        document.getElementById("shop-metadata-list").appendChild(div);
+      }
+      function randomizeShopValues() {
+        document.getElementById("shop-conv-id").value = "CONV_" + Math.random().toString(36).substr(2, 9).toUpperCase();
+        document.getElementById("shop-desc").value = "Order via Python Dashboard";
+        document.getElementById("shop-metadata-list").innerHTML = "";
+        addMetadataRow("source", "dashboard");
+        addMetadataRow("client", "web");
+      }
 
-        // Load products
-        function loadProducts() {
-            const container = document.getElementById('products-container');
-            container.innerHTML = '';
+      async function createOrder() {
+        const form = document.getElementById("billing-form");
+        const formData = new FormData(form);
+        const billing = Object.fromEntries(formData.entries());
+        const enabledInst = Array.from(document.querySelectorAll(".inst-check:checked")).map(e => parseInt(e.value));
+        const payOptions = [
+          document.getElementById("po-card").checked ? "card" : null,
+          document.getElementById("po-bank").checked ? "bank_transfer" : null,
+        ].filter(Boolean);
+        const metadata = Array.from(document.querySelectorAll(".metadata-row")).map(row => {
+          const inputs = row.querySelectorAll("input");
+          return { key: inputs[0].value, value: inputs[1].value };
+        }).filter(m => m.key);
 
-            products.forEach(product => {
-                const productCard = `
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card product-card h-100">
-                            <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 200px; background: #f8f9fa;">
-                                <i class="${product.icon}" style="font-size: 3rem; color: #6c757d;"></i>
-                            </div>
-                            <div class="card-body d-flex flex-column">
-                                <h6 class="card-title">${product.name}</h6>
-                                <p class="card-text small text-muted">${product.description}</p>
-                                <div class="mt-auto">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="badge bg-secondary">${product.category}</span>
-                                        <strong class="text-primary">₺${product.price.toFixed(2)}</strong>
-                                    </div>
-                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="addToCart('${product.id}')">
-                                        <i class="fas fa-cart-plus"></i> Add to Cart
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        const requestData = {
+          cart: cart,
+          billing: billing,
+          same_address: document.getElementById("same-address").checked,
+          installment: parseInt(document.getElementById("shop-installment").value),
+          currency: document.getElementById("shop-currency").value,
+          locale: document.getElementById("shop-locale").value,
+          description: document.getElementById("shop-desc").value,
+          conversation_id: document.getElementById("shop-conv-id").value,
+          force_3d: document.getElementById("shop-3d").checked,
+          enabled_installments: enabledInst,
+          payment_options: payOptions,
+          metadata: metadata
+        };
+
+        try {
+          const res = await fetch("/api/order/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestData)
+          });
+          const json = await res.json();
+          if (json.checkout_url) {
+            window.location.href = json.checkout_url;
+          } else {
+            alert("Order Created! Ref: " + json.reference_id + "\n(No Checkout URL returned)");
+          }
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      }
+
+      // --- ORDER LIST Logic ---
+      let currentOrderPage = 1;
+      async functionfetchOrders(pageOverride) {
+        if (pageOverride) currentOrderPage = pageOverride;
+        const tbody = document.getElementById("orders-table-body");
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+
+        const perPage = document.getElementById("order-per-page").value;
+        const startDate = document.getElementById("filter-start").value;
+        const endDate = document.getElementById("filter-end").value;
+        const orgId = document.getElementById("filter-org").value;
+        const refId = document.getElementById("filter-ref").value;
+
+        const params = new URLSearchParams({
+          page: currentOrderPage,
+          per_page: perPage,
+          start_date: startDate,
+          end_date: endDate,
+          organization_id: orgId,
+          related_reference_id: refId
+         });
+
+        try {
+          const res = await fetch("/api/order/list?" + params);
+          const json = await res.json();
+          if (!json.items || json.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No orders found.</td></tr>';
+            document.getElementById("order-page-info").innerText = `Page ${currentOrderPage}`;
+            return;
+          }
+          tbody.innerHTML = json.items.map(o => `
+              <tr>
+                  <td class="font-monospace">${o.reference_id}</td>
+                  <td>${o.created_at || "-"}</td>
+                  <td>${o.amount} ${o.currency}</td>
+                  <td><span class="badge bg-${o.status === 'Paid' ? 'success' : 'secondary'}">${o.status}</span></td>
+                  <td><button class="btn btn-sm btn-info" onclick="openOrderDetail('${o.reference_id}')">View</button></td>
+              </tr>
+          `).join("");
+          document.getElementById("order-page-info").innerText = `Page ${currentOrderPage}`;
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error: ${e.message}</td></tr>`;
+        }
+      }
+      function changeOrderPage(dir) {
+        if (currentOrderPage + dir < 1) return;
+        currentOrderPage += dir;
+        fetchOrders();
+      }
+
+      // --- ORDER DETAIL Logic ---
+      let currentDetailRefId = null;
+      async function openOrderDetail(refId) {
+        currentDetailRefId = refId;
+        const modal = new bootstrap.Modal(document.getElementById("orderDetailModal"));
+        modal.show();
+        document.getElementById("detail-id").innerText = refId;
+        document.getElementById("detail-basic").innerHTML = "<tr><td colspan='2'>Loading...</td></tr>";
+        document.getElementById("detail-raw").innerText = "";
+        document.getElementById("detail-transactions").innerText = "Loading...";
+
+        // Fetch details
+        try {
+          const res = await fetch(`/api/order/${refId}`);
+          const data = await res.json();
+
+          // Basic Info Table
+          const basicHTML = `
+              <tr><th>Status</th><td>${data.status}</td></tr>
+              <tr><th>Amount</th><td>${data.amount} ${data.currency}</td></tr>
+              <tr><th>Buyer</th><td>${data.buyer ? (data.buyer.name + " " + data.buyer.surname) : "-"}</td></tr>
+              <tr><th>Conversation ID</th><td>${data.conversation_id}</td></tr>
+              <tr><th>Created At</th><td>${data.created_at}</td></tr>
+          `;
+          document.getElementById("detail-basic").innerHTML = basicHTML;
+          document.getElementById("detail-raw").innerText = JSON.stringify(data, null, 2);
+
+          // Fetch Transactions
+          const trxRes = await fetch(`/api/order/${refId}/transactions`); // Assuming endpoint exists
+          // If not checking status
+          const statusRes = await fetch(`/api/order/${refId}/status`);
+          const statusJson = await statusRes.json();
+          // Just show status raw for now
+          document.getElementById("detail-transactions").innerText = JSON.stringify(statusJson, null, 2);
+
+        } catch (e) {
+          document.getElementById("detail-basic").innerText = "Error loading details.";
+        }
+      }
+
+      async function actionOrder(action) {
+        if (!currentDetailRefId || !confirm(`Are you sure you want to ${action} this order?`)) return;
+        try {
+          const res = await fetch(`/api/order/${action}`, {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ reference_id: currentDetailRefId })
+          });
+          const json = await res.json();
+          alert(action.toUpperCase() + " Result: " + JSON.stringify(json));
+          openOrderDetail(currentDetailRefId); // Refresh
+        } catch (e) { alert("Error: " + e.message); }
+      }
+
+      // --- SUBSCRIPTION Logic ---
+      async function fetchSubscriptions() {
+          const div = document.getElementById("subs-list");
+          div.innerHTML = "Loading...";
+          try {
+              const res = await fetch("/api/subscription/list");
+              const json = await res.json();
+              if (!json.items || json.items.length === 0) {
+                  div.innerHTML = "No subscriptions found."; return;
+              }
+              div.innerHTML = json.items.map(s => `
+                  <div class="list-group-item d-flex justify-content-between align-items-center">
+                      <div>
+                          <h5 class="mb-1">${s.title || "Sub"} (${s.reference_id})</h5>
+                          <small>Status: ${s.status} | Period: ${s.period}</small>
+                      </div>
+                      <div>
+                          ${s.status !== 'Canceled' ?
+                              `<button class="btn btn-sm btn-danger" onclick="cancelSubscription('${s.reference_id}')">Cancel</button>` :
+                              '<span class="badge bg-secondary">Canceled</span>'}
+                      </div>
+                  </div>
+              `).join("");
+          } catch(e) { div.innerHTML = "Error: " + e.message; }
+      }
+
+      async function createSubscription(e) {
+          e.preventDefault();
+          const form = e.target;
+          const data = {
+              title: form.name.value,
+              amount: parseFloat(form.amount.value),
+              period: parseInt(form.period.value),
+              currency: "TRY"
+          };
+          try {
+              const res = await fetch("/api/subscription/create", {
+                  method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(data)
+              });
+              const json = await res.json();
+              if (json.checkout_url) window.location.href = json.checkout_url;
+              else alert("Subscription created: " + JSON.stringify(json));
+          } catch(e) { alert("Error: " + e.message); }
+      }
+
+      async function cancelSubscription(refId) {
+          if(!confirm("Cancel subscription?")) return;
+          try {
+              await fetch("/api/subscription/cancel", {
+                  method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({reference_id: refId})
+              });
+              fetchSubscriptions();
+          } catch(e) { alert("Error: " + e.message); }
+      }
+
+      // --- TERMS LOGIC ---
+      // (Stub implementation for brevity, mirror what PHP example does)
+      async function fetchTerms() {
+           const tbody = document.getElementById("terms-table-body");
+           tbody.innerHTML = "<tr><td colspan='6' class='text-center'>Scanning orders (mock)...</td></tr>";
+           // In a real app we'd fetch from an endpoint. For now, let's just show mock or empty.
+           setTimeout(() => {
+               tbody.innerHTML = "<tr><td colspan='6' class='text-center'>No terms found in recent scan.</td></tr>";
+           }, 500);
+      }
+      async function createTerm(e) {
+          e.preventDefault();
+          alert("Create term feature requires order context. Go to Order Details -> Add Term.");
+      }
+
+      // --- SUBMERCHANTS LOGIC ---
+      async function fetchSubmerchants() {
+        const tbody = document.getElementById("submerchants-table-body");
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+        try {
+          const res = await fetch("/api/order/submerchants?page=1&per_page=10");
+          const json = await res.json();
+          const rows = json.items || json.rows || [];
+          if (!rows || rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No submerchants found.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = rows.map(s => `
+                  <tr>
+                      <td class="font-monospace">${s.submerchant_id || s.reference_id || "-"}</td>
+                      <td>${s.type || "PERSONAL"}</td>
+                      <td>${s.name || "-"}</td>
+                      <td>${s.email || "-"}</td>
+                      <td><span class="badge bg-${s.status === 1 ? 'success' : 'secondary'}">${s.status === 1 ? 'Active' : 'Inactive'}</span></td>
+                  </tr>
+              `).join("");
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error: ${e.message}</td></tr>`;
+        }
+      }
+
+      // --- ORGANIZATION LOGIC ---
+      async function fetchOrganizationSettings() {
+        const div = document.getElementById("org-settings-body");
+        div.innerHTML = "Loading...";
+        try {
+          const res = await fetch("/api/organization/settings");
+          const json = await res.json();
+          div.innerHTML = `
+                  <table class="table table-bordered">
+                      <tr><th style="width:200px">Organization ID</th><td>${json.organization_id || "-"}</td></tr>
+                      <tr><th>Name</th><td>${json.name || "-"}</td></tr>
+                      <tr><th>Status</th><td>${json.status || "-"}</td></tr>
+                      <tr><th>Created At</th><td>${json.created_at || "-"}</td></tr>
+                  </table>
                 `;
-                container.innerHTML += productCard;
-            });
+        } catch (e) {
+          div.innerHTML = `<div class="alert alert-danger">Error loading settings: ${e.message}</div>`;
         }
-
-        // Add to cart
-        function addToCart(productId) {
-            const product = products.find(p => p.id === productId);
-            const existingItem = cart.find(item => item.id === productId);
-
-            if (existingItem) {
-                existingItem.quantity += 1;
-            } else {
-                cart.push({
-                    id: product.id,
-                    name: product.name,
-                    price: product.price,
-                    category: product.category,
-                    quantity: 1
-                });
-            }
-
-            updateCartDisplay();
-        }
-
-        // Remove from cart
-        function removeFromCart(productId) {
-            cart = cart.filter(item => item.id !== productId);
-            updateCartDisplay();
-        }
-
-        // Update quantity
-        function updateQuantity(productId, change) {
-            const item = cart.find(item => item.id === productId);
-            if (item) {
-                item.quantity += change;
-                if (item.quantity <= 0) {
-                    removeFromCart(productId);
-                } else {
-                    updateCartDisplay();
-                }
-            }
-        }
-
-        // Update cart display
-        function updateCartDisplay() {
-            const cartItems = document.getElementById('cart-items');
-            const cartTotal = document.getElementById('cart-total');
-            const proceedBtn = document.getElementById('proceed-to-address');
-
-            if (cart.length === 0) {
-                cartItems.innerHTML = '<p class="text-muted text-center">Your cart is empty</p>';
-                cartTotal.textContent = '₺0.00';
-                proceedBtn.disabled = true;
-                return;
-            }
-
-            let html = '';
-            let total = 0;
-
-            cart.forEach(item => {
-                const itemTotal = item.price * item.quantity;
-                total += itemTotal;
-
-                html += `
-                    <div class="cart-item">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">${item.name}</h6>
-                                <small class="text-muted">${item.category}</small>
-                                <div class="quantity-controls mt-2">
-                                    <div class="quantity-btn" onclick="updateQuantity('${item.id}', -1)">
-                                        <i class="fas fa-minus"></i>
-                                    </div>
-                                    <span class="mx-2">${item.quantity}</span>
-                                    <div class="quantity-btn" onclick="updateQuantity('${item.id}', 1)">
-                                        <i class="fas fa-plus"></i>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-end">
-                                <div class="text-primary fw-bold">₺${itemTotal.toFixed(2)}</div>
-                                <button class="btn btn-sm btn-outline-danger mt-1" onclick="removeFromCart('${item.id}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            cartItems.innerHTML = html;
-            cartTotal.textContent = `₺${total.toFixed(2)}`;
-            proceedBtn.disabled = false;
-
-            // Update installment amounts
-            updateInstallmentAmounts(total);
-
-            // Update order summary if in address step
-            updateOrderSummary();
-        }
-
-        // Update installment amounts
-        function updateInstallmentAmounts(total) {
-            // Installment rates (commission rates)
-            const installmentRates = {
-                1: 0,      // Cash 0%
-                2: 0.02,   // 2 installments 2%
-                3: 0.03,   // 3 installments 3%
-                6: 0.06,   // 6 installments 6%
-                12: 0.12   // 12 installments 12%
-            };
-
-            [1, 2, 3, 6, 12].forEach(installment => {
-                const amountElement = document.getElementById(`amount-${installment}`);
-                if (total > 0) {
-                    const rate = installmentRates[installment];
-                    const totalWithCommission = total * (1 + rate);
-
-                    if (installment === 1) {
-                        amountElement.innerHTML = `<strong>₺${total.toFixed(2)}</strong>`;
-                    } else {
-                        const monthlyAmount = totalWithCommission / installment;
-                        amountElement.innerHTML = `
-                            <small>
-                                ${installment}x ₺${monthlyAmount.toFixed(2)} =
-                                <strong>₺${totalWithCommission.toFixed(2)}</strong>
-                                ${rate > 0 ? `<span class="text-warning">(+${(rate*100).toFixed(0)}% commission)</span>` : ''}
-                            </small>
-                        `;
-                    }
-                } else {
-                    amountElement.innerHTML = '';
-                }
-            });
-        }
-
-        // Update order summary
-        function updateOrderSummary() {
-            const orderSummary = document.getElementById('order-summary');
-            const orderTotal = document.getElementById('order-total');
-
-            if (!orderSummary) return;
-
-            let html = '';
-            let total = 0;
-
-            cart.forEach(item => {
-                const itemTotal = item.price * item.quantity;
-                total += itemTotal;
-
-                html += `
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>${item.name} x${item.quantity}</span>
-                        <span>₺${itemTotal.toFixed(2)}</span>
-                    </div>
-                `;
-            });
-
-            orderSummary.innerHTML = html;
-            orderTotal.textContent = `₺${total.toFixed(2)}`;
-        }
-
-        // Setup event listeners
-        function setupEventListeners() {
-            // Proceed to address
-            document.getElementById('proceed-to-address').addEventListener('click', function() {
-                showStep('address');
-            });
-
-            // Back to cart
-            document.getElementById('back-to-cart').addEventListener('click', function() {
-                showStep('cart');
-            });
-
-            // Same address checkbox
-            document.getElementById('same-address').addEventListener('change', function() {
-                const shippingInputs = document.querySelectorAll('#shipping-form input, #shipping-form textarea');
-                const billingInputs = document.querySelectorAll('#billing-form input, #billing-form textarea');
-
-                if (this.checked) {
-                    shippingInputs.forEach((input, index) => {
-                        input.disabled = true;
-                        if (billingInputs[index]) {
-                            input.value = billingInputs[index].value;
-                        }
-                    });
-                } else {
-                    shippingInputs.forEach(input => {
-                        input.disabled = false;
-                    });
-                }
-            });
-
-            // Sync billing to shipping when same address is checked
-            document.querySelectorAll('#billing-form input, #billing-form textarea').forEach(input => {
-                input.addEventListener('input', function() {
-                    if (document.getElementById('same-address').checked) {
-                        const shippingField = document.querySelector(`#shipping-form [name="${this.name}"]`);
-                        if (shippingField) {
-                            shippingField.value = this.value;
-                        }
-                    }
-                });
-            });
-
-            // Create order
-            document.getElementById('create-order').addEventListener('click', createOrder);
-        }
-
-        // Show step
-        function showStep(step) {
-            // Hide all steps
-            document.querySelectorAll('.step-content').forEach(content => {
-                content.style.display = 'none';
-            });
-
-            // Reset step indicators
-            document.querySelectorAll('.step').forEach(stepEl => {
-                stepEl.classList.remove('active', 'completed');
-            });
-
-            // Show current step
-            document.getElementById(`${step}-step`).style.display = 'block';
-
-            // Update step indicators
-            if (step === 'cart') {
-                document.getElementById('step-cart').classList.add('active');
-            } else if (step === 'address') {
-                document.getElementById('step-cart').classList.add('completed');
-                document.getElementById('step-address').classList.add('active');
-                updateOrderSummary();
-            } else if (step === 'payment') {
-                document.getElementById('step-cart').classList.add('completed');
-                document.getElementById('step-address').classList.add('completed');
-                document.getElementById('step-payment').classList.add('active');
-            } else if (step === 'loading') {
-                document.getElementById('step-cart').classList.add('completed');
-                document.getElementById('step-address').classList.add('completed');
-                document.getElementById('step-payment').classList.add('active');
-            }
-        }
-
-        // Create order
-        async function createOrder() {
-            // Validate billing form
-            const billingForm = document.getElementById('billing-form');
-            if (!billingForm.checkValidity()) {
-                billingForm.reportValidity();
-                return;
-            }
-
-            // Validate shipping form if not same address
-            const sameAddress = document.getElementById('same-address').checked;
-            if (!sameAddress) {
-                const shippingForm = document.getElementById('shipping-form');
-                if (!shippingForm.checkValidity()) {
-                    shippingForm.reportValidity();
-                    return;
-                }
-            }
-
-            showStep('loading');
-
-            try {
-                // Get selected installment
-                const selectedInstallment = document.querySelector('input[name="installment"]:checked').value;
-
-                // Prepare order data
-                const billingData = new FormData(billingForm);
-                const shippingData = sameAddress ? billingData : new FormData(document.getElementById('shipping-form'));
-
-                const orderData = {
-                    cart: cart,
-                    billing: Object.fromEntries(billingData),
-                    shipping: Object.fromEntries(shippingData),
-                    same_address: sameAddress,
-                    installment: parseInt(selectedInstallment)
-                };
-
-                // Send order to backend
-                const response = await fetch('/api', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(orderData)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Log order details including conversation_id and metadata
-                    console.log('Order created successfully:', {
-                        order_id: result.order_id,
-                        reference_id: result.reference_id,
-                        conversation_id: result.conversation_id,
-                        metadata: result.metadata
-                    });
-
-                    // Store order details in localStorage for potential future use
-                    localStorage.setItem('lastOrder', JSON.stringify({
-                        order_id: result.order_id,
-                        reference_id: result.reference_id,
-                        conversation_id: result.conversation_id,
-                        timestamp: new Date().toISOString(),
-                        metadata: result.metadata
-                    }));
-
-                    // Check if checkout_url exists
-                    if (result.checkout_url) {
-                        // Redirect to checkout URL
-                        window.location.href = result.checkout_url;
-                    } else {
-                        // Handle case where checkout_url is null/empty
-                        showError('Order created but no checkout URL provided. Order ID: ' + (result.order_id || 'Unknown') +
-                                 '<br>Conversation ID: ' + (result.conversation_id || 'Unknown'));
-                    }
-                } else {
-                    throw new Error(result.message || 'An error occurred while creating the order');
-                }
-            } catch (error) {
-                console.error('Order creation error:', error);
-                showError(error.message || 'An error occurred while creating the order');
-                showStep('address');
-            }
-        }
-
-        // Show error
-        function showError(message) {
-            document.getElementById('error-message').textContent = message;
-            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-            errorModal.show();
-        }
+      }
     </script>
-</body>
+  </body>
 </html>

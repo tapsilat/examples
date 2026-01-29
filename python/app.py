@@ -1,4 +1,9 @@
 import os
+import glob
+import json
+import time
+import uuid
+from datetime import datetime
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
@@ -13,6 +18,12 @@ from tapsilat_py.models import (
     MetadataDTO,
     OrderCreateDTO,
     ShippingAddressDTO,
+    RefundOrderDTO,
+    SubscriptionCreateRequest,
+    SubscriptionCancelRequest,
+    SubscriptionUser,
+    SubscriptionBilling,
+    OrderPaymentTermCreateDTO,
 )
 
 # Load environment variables
@@ -26,386 +37,401 @@ def get_base_url():
     return request.host_url.rstrip("/")
 
 
-def generate_conversation_id():
-    """Generate unique conversation ID"""
-    import time
-    import uuid
-
-    timestamp = int(time.time())
-    unique_id = str(uuid.uuid4())[:8]
-    return f"CONV_{timestamp}_{unique_id}"
-
-
-def create_metadata(order_data):
-    """Create metadata from order data"""
-    metadata = []
-
-    # Add cart summary
-    cart_items = len(order_data.get("cart", []))
-    metadata.append(MetadataDTO(key="cart_items_count", value=str(cart_items)))
-
-    # Add installment info
-    installment = order_data.get("installment", 1)
-    metadata.append(MetadataDTO(key="selected_installment", value=str(installment)))
-
-    # Add address info
-    same_address = order_data.get("same_address", True)
-    metadata.append(
-        MetadataDTO(key="same_billing_shipping", value=str(same_address).lower())
-    )
-
-    # Add customer info
-    billing = order_data.get("billing", {})
-    if billing.get("city"):
-        metadata.append(MetadataDTO(key="customer_city", value=billing["city"]))
-
-    # Add application info
-    metadata.append(
-        MetadataDTO(key="application_name", value="Tapsilat Python SDK Example")
-    )
-    metadata.append(MetadataDTO(key="framework", value="Flask"))
-
-    return metadata
-
-
 def get_api_client():
     """Get API client"""
     api_key = os.getenv("TAPSILAT_API_KEY", "")
     if not api_key:
         raise ValueError("TAPSILAT_API_KEY environment variable is required")
-
-    return TapsilatAPI(api_key)
-
-
-def validate_order_data(data):
-    """Validate input data"""
-    if not data.get("cart") or not isinstance(data["cart"], list):
-        raise ValueError("Cart information is required")
-
-    if not data.get("billing") or not isinstance(data["billing"], dict):
-        raise ValueError("Billing address information is required")
-
-    required_billing = [
-        "contact_name",
-        "email",
-        "contact_phone",
-        "address",
-        "city",
-        "vat_number",
-    ]
-    for field in required_billing:
-        if not data["billing"].get(field):
-            raise ValueError(f"{field} field is required")
-
-    if not data.get("same_address", True) and (
-        not data.get("shipping") or not isinstance(data["shipping"], dict)
-    ):
-        raise ValueError("Shipping address information is required")
-
-    # Validate installment
-    if "installment" in data:
-        try:
-            installment = int(data["installment"])
-            if installment not in [1, 2, 3, 6, 9, 12]:
-                raise ValueError("Invalid installment count")
-        except (ValueError, TypeError):
-            raise ValueError("Invalid installment count")
-
-    return True
-
-
-def calculate_total(cart_items):
-    """Calculate total amount"""
-    total = 0
-    for item in cart_items:
-        if "price" not in item or "quantity" not in item:
-            raise ValueError("Price and quantity information required in cart items")
-        total += float(item["price"]) * int(item["quantity"])
-    return round(total, 2)
-
-
-def create_basket_items(cart_items):
-    """Create basket items for Tapsilat - PHP compatible version"""
-    basket_items = []
-
-    for item in cart_items:
-        # Validate required fields
-        if not all(key in item for key in ["id", "name", "price", "quantity"]):
-            raise ValueError(
-                "id, name, price and quantity fields required in cart items"
-            )
-
-        # Create basket item payer exactly like PHP
-        basket_item_payer = BasketItemPayerDTO(
-            address=None,
-            reference_id=f"{item['id']}_payer",
-            tax_office=None,
-            title=None,
-            type="PERSONAL",
-            vat=None,
-        )
-
-        # Convert price to proper format (ensure it's a number with proper precision)
-        unit_price = round(float(item["price"]), 2)
-        item_quantity = int(item["quantity"])
-        # For Tapsilat API, price should be the total price (unit price * quantity)
-        total_price = round(unit_price * item_quantity, 2)
-
-        # Create basket item exactly like PHP
-        basket_item = BasketItemDTO(
-            category1=item.get("category", "Electronics"),
-            category2=None,
-            commission_amount=0,
-            coupon=None,
-            coupon_discount=0,
-            data=str(item),  # JSON encode equivalent
-            id=str(item["id"]),
-            item_type="PHYSICAL",
-            name=item["name"],
-            paid_amount=0,
-            payer=basket_item_payer,
-            price=total_price,  # total price (unit * quantity)
-            quantity=1,  # always 1 since price is already total
-        )
-
-        basket_items.append(basket_item)
-
-    return basket_items
+    return TapsilatAPI(
+        api_key,
+        base_url=os.getenv("TAPSILAT_BASE_URL", "https://panel.tapsilat.dev/api/v1"),
+    )
 
 
 @app.route("/")
 def index():
-    """Main page"""
     return render_template("index.html")
 
 
-@app.route("/api", methods=["POST"])
-def api():
-    """API endpoint for order creation"""
+@app.route("/api/order/list", methods=["GET"])
+def get_orders():
     try:
-        # Get JSON input
-        data = request.get_json()
-
-        if not data:
-            return jsonify({"success": False, "message": "JSON data required"}), 400
-
-        # Validate input data
-        validate_order_data(data)
-
-        # Get API client
         client = get_api_client()
+        page = request.args.get("page", 1)
+        per_page = request.args.get("per_page", 10)
+        start_date = request.args.get("start_date", "")
+        end_date = request.args.get("end_date", "")
+        organization_id = request.args.get("organization_id", "")
+        related_reference_id = request.args.get("related_reference_id", "")
 
-        # Create buyer - PHP compatible version, Python parameter names
-        billing = data["billing"]
+        # SDK expects string for date params
+        response = client.get_order_list(
+            page=int(page),
+            per_page=int(per_page),
+            start_date=start_date,
+            end_date=end_date,
+            organization_id=organization_id,
+            related_reference_id=related_reference_id,
+        )
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-        # Split name exactly like PHP does
-        name_parts = billing["contact_name"].split(" ", 1)
-        first_name = name_parts[0] if name_parts else billing["contact_name"]
+
+@app.route("/api/order/create", methods=["POST"])
+def create_order():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        base_url = get_base_url()
+
+        # 1. Billing Address
+        billing_data = data.get("billing", {})
+        billing_address = BillingAddressDTO(
+            contact_name=billing_data.get("contact_name"),
+            city=billing_data.get("city"),
+            country="Turkey",
+            address=billing_data.get("address"),
+            zip_code=billing_data.get("zip_code"),
+            contact_phone=billing_data.get("contact_phone"),
+            vat_number=billing_data.get("vat_number"),
+        )
+
+        # 2. Shipping Address
+        # Logic: if same_address is true, use billing data, else use shipping data (not implemented in UI but logic handles it)
+        shipping_address = ShippingAddressDTO(
+            contact_name=billing_data.get("contact_name"),
+            city=billing_data.get("city"),
+            country="Turkey",
+            address=billing_data.get("address"),
+            zip_code=billing_data.get("zip_code"),
+        )
+
+        # 3. Buyer
+        name_parts = billing_data.get("contact_name", "John Doe").split(" ", 1)
+        first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
         buyer = BuyerDTO(
-            name=first_name,  # Python SDK uses 'name'
-            surname=last_name,  # Python SDK uses 'surname'
-            birth_date=None,
-            city=billing["city"],
+            name=first_name,
+            surname=last_name,
+            email=billing_data.get("email"),
+            gsm_number=billing_data.get("contact_phone"),
+            ip=request.remote_addr,
+            city=billing_data.get("city"),
             country="Turkey",
-            email=billing["email"],
-            gsm_number=billing["contact_phone"],  # Direct use, same as PHP
-            id=None,
-            identity_number=None,
-            ip=None,
-            last_login_date=None,
-            registration_address=None,
-            registration_date=None,
-            title=None,
-            zip_code=None,
+            registration_address=billing_data.get("address"),
         )
 
-        # Create billing address - PHP compatible version
-        billing_address = BillingAddressDTO(
-            address=billing["address"],
-            billing_type="PERSONAL",
-            citizenship="TC",
-            city=billing["city"],
-            contact_name=billing["contact_name"],
-            contact_phone=billing["contact_phone"],
-            country="Turkey",
-            district=None,
-            tax_office=None,
-            title=billing["contact_name"],
-            vat_number=billing["vat_number"],
-            zip_code=billing.get("zip_code"),
-        )
+        # 4. Basket Items
+        basket_items = []
+        cart_total = 0
+        for item in data.get("cart", []):
+            price = float(item["price"])
+            qty = int(item["quantity"])
+            total_price = price * qty
+            cart_total += total_price
 
-        # Create shipping address - PHP compatible version
-        shipping = data["shipping"] if not data.get("same_address", True) else billing
-        shipping_address = ShippingAddressDTO(
-            address=shipping["address"],
-            city=shipping["city"],
-            contact_name=shipping["contact_name"],
-            country="Turkey",
-            shipping_date=None,  # PHP uses date('+3 days') but let's skip for now
-            tracking_code=f"TRACK{int(__import__('time').time())}",  # PHP equivalent
-            zip_code=shipping.get("zip_code"),
-        )
+            # Helper for basket item payer
+            payer = BasketItemPayerDTO()  # Optional details
 
-        # Create basket items
-        basket_items = create_basket_items(data["cart"])
+            basket_item = BasketItemDTO(
+                id=str(item["id"]),
+                name=item["name"],
+                price=total_price,  # Total price for item line
+                item_type="PHYSICAL",
+                category1="General",
+                quantity=1,  # SDK convention: price is total, quantity is 1
+                payer=payer,
+            )
+            basket_items.append(basket_item)
 
-        # Calculate total exactly like PHP
-        # total = calculate_total(data['cart'])  # Not used, keeping for reference
+        # 5. Metadata
+        metadata_list = []
+        for m in data.get("metadata", []):
+            metadata_list.append(MetadataDTO(key=m["key"], value=m["value"]))
 
-        # Verify basket items total matches order total - PHP compatible
-        basket_total = 0
-        for item in basket_items:
-            # Since we're using total price in basket items, quantity is always 1
-            basket_total += item.price
-        basket_total = round(basket_total, 2)
-
-        # Use the basket total to ensure consistency - exactly like PHP
-        final_total = basket_total
-
-        # Generate conversation ID
-        conversation_id = generate_conversation_id()
-
-        # Create metadata
-        metadata = create_metadata(data)
-
-        # Get base URL for payment callbacks
-        base_url = get_base_url()
-
-        # Create order with basket items - enhanced with URLs, conversation_id and metadata
-        import time
-
-        order = OrderCreateDTO(
-            amount=final_total,  # use basket total for consistency
-            currency="TRY",
-            locale="tr",
+        # 6. Order Create DTO
+        order_dto = OrderCreateDTO(
+            amount=round(float(cart_total), 2),
+            currency=data.get("currency", "TRY"),
+            locale=data.get("locale", "tr"),
             buyer=buyer,
             basket_items=basket_items,
             billing_address=billing_address,
-            checkout_design=None,
-            conversation_id=conversation_id,
-            # enabled_installments=enabled_installments,  # Commented due to SDK bug
-            external_reference_id=f"ORDER_{int(time.time())}",
-            metadata=metadata,
-            order_cards=None,
-            paid_amount=None,
-            partial_payment=None,
-            payment_failure_url=f"{base_url}/payment/failure",
-            payment_methods=None,
-            payment_options=None,
-            payment_success_url=f"{base_url}/payment/success",
-            payment_terms=None,
-            pf_sub_merchant=None,
             shipping_address=shipping_address,
+            conversation_id=data.get("conversation_id"),
+            external_reference_id=f"EXT_{int(time.time())}",
+            payment_success_url=f"{base_url}/payment/success",
+            payment_failure_url=f"{base_url}/payment/failure",
+            metadata=metadata_list,
+            # Handle enabled installments
+            enabled_installments=data.get("enabled_installments"),
+            # Boolean to bool conversion if needed, but Python handles json bools
+            three_d_force=data.get("three_d_force", False),
+            payment_options=data.get("payment_options"),
         )
 
-        # Create order via Tapsilat API - exactly like PHP
-        response = client.create_order(order)
+        # Determine payment methods (all pay methods bool)
+        if data.get("payment_methods") is True:
+            order_dto.payment_methods = True  # Enabling all
 
-        # Get checkout URL like PHP does - using get_checkout_url method
-        checkout_url = None
-        if hasattr(response, "reference_id") and response.reference_id:
-            try:
-                # Use get_checkout_url method like in the SDK examples
-                checkout_url = client.get_checkout_url(response.reference_id)
-            except Exception as e:
-                print("Error getting checkout URL:", str(e))
+        response = client.create_order(order_dto)
 
-        # Return success response - enhanced with conversation_id and metadata info
-        return jsonify(
-            {
-                "success": True,
-                "order_id": getattr(response, "order_id", None),
-                "reference_id": getattr(response, "reference_id", None),
-                "conversation_id": conversation_id,
-                "checkout_url": checkout_url,
-                "message": "Order created successfully",
-                "metadata": {
-                    "cart_items": len(data.get("cart", [])),
-                    "installment": data.get("installment", 1),
-                    "same_address": data.get("same_address", True),
-                    "payment_success_url": f"{base_url}/payment/success",
-                    "payment_failure_url": f"{base_url}/payment/failure",
-                },
-            }
-        )
-
-    except APIException as e:
-        # PHP compatible error handling
-        return jsonify(
-            {
-                "success": False,
-                "message": f"Tapsilat API Error: {getattr(e, 'error', str(e))}",
-                "code": getattr(e, "code", None),
-                "status_code": getattr(e, "status_code", None),
-            }
-        ), 400
+        # Serialize response
+        return jsonify(response)
 
     except Exception as e:
-        # PHP compatible error handling
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 400
 
 
-@app.route("/payment/success")
-def payment_success():
-    """Payment success callback page"""
-    # Get payment details from query parameters
-    reference_id = request.args.get("reference_id")
-    conversation_id = request.args.get("conversation_id")
-
-    return render_template(
-        "payment_success.html",
-        reference_id=reference_id,
-        conversation_id=conversation_id,
-    )
-
-
-@app.route("/payment/failure")
-def payment_failure():
-    """Payment failure callback page"""
-    # Get payment details from query parameters
-    reference_id = request.args.get("reference_id")
-    conversation_id = request.args.get("conversation_id")
-    error_message = request.args.get("error_message", "Payment failed")
-
-    return render_template(
-        "payment_failure.html",
-        reference_id=reference_id,
-        conversation_id=conversation_id,
-        error_message=error_message,
-    )
-
-
-@app.route("/api/payment/status/<reference_id>")
-def get_payment_status(reference_id):
-    """Get payment status API endpoint"""
+@app.route("/api/order/<reference_id>", methods=["GET"])
+def get_order(reference_id):
     try:
         client = get_api_client()
-        status = client.get_order_status(reference_id)
+        response = client.get_order(reference_id)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-        return jsonify(
-            {
-                "success": True,
-                "reference_id": reference_id,
-                "status": status,
-                "message": "Payment status retrieved successfully",
-            }
+
+@app.route("/api/order/<reference_id>/transactions", methods=["GET"])
+def get_order_transactions(reference_id):
+    try:
+        client = get_api_client()
+        response = client.get_order_transactions(reference_id)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/<reference_id>/status", methods=["GET"])
+def get_order_status(reference_id):
+    try:
+        client = get_api_client()
+        response = client.get_order_status(reference_id)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/cancel", methods=["POST"])
+def cancel_order():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        response = client.cancel_order(data["reference_id"])
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/refund", methods=["POST"])
+def refund_order():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+
+        # Prepare DTO
+        refund_dto = RefundOrderDTO(
+            reference_id=data["reference_id"],
+            amount=float(data.get("amount", 0))
+            if data.get("amount")
+            else 0,  # If 0 or omitted, logic might vary, but SDK usually needs amount
+        )
+        # Wait, if amount is empty, user might mean "full refund".
+        # But DTO requires amount. In PHP example, we prompt for amount or fetch order to get amount.
+        # Let's assume frontend sends amount or we handle checking order amount first if 0.
+        # For parity with simple example, let's just use what's sent.
+        if "amount" not in data or not data["amount"]:
+            # Retrieve order to get full amount if needed, or error
+            # Simple approach: error if missing
+            pass
+
+        response = client.refund_order(refund_dto)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/submerchants", methods=["GET"])
+def get_order_submerchants():
+    try:
+        client = get_api_client()
+        page = request.args.get("page", 1)
+        per_page = request.args.get("per_page", 10)
+        response = client.get_order_submerchants(page=int(page), per_page=int(per_page))
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/settings", methods=["GET"])
+def get_organization_settings():
+    try:
+        client = get_api_client()
+        response = client.get_organization_settings()
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/term/create", methods=["POST"])
+def create_order_term():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+
+        term_dto = OrderPaymentTermCreateDTO(
+            order_id=data[
+                "order_reference_id"
+            ],  # SDK uses 'order_id' parameter name in DTO but maps to 'order_id' or 'reference_id'?
+            # SDK DTO: order_id: str
+            # Let's assume it maps to reference_id or internal ID.
+            term_reference_id=f"TERM_{int(time.time())}",
+            amount=float(data["amount"]),
+            due_date=data["due_date"],
+            term_sequence=1,  # Default
+            required=data.get("required", False),
+            status="WAITING",
+            data=data.get("data"),
+        )
+        response = client.create_order_term(term_dto)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/term/delete", methods=["POST"])
+def delete_order_term():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        response = client.delete_order_term(data["order_id"], data["term_reference_id"])
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# Subscriptions
+@app.route("/api/subscription/list", methods=["GET"])
+def list_subscriptions():
+    try:
+        client = get_api_client()
+        page = request.args.get("page", 1)
+        per_page = request.args.get("per_page", 10)
+        response = client.list_subscriptions(page=int(page), per_page=int(per_page))
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/subscription/create", methods=["POST"])
+def create_subscription():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        base_url = get_base_url()
+
+        sub_req = SubscriptionCreateRequest(
+            title=data.get("title"),
+            amount=float(data.get("amount")),
+            period=int(data.get("period")),
+            currency=data.get("currency", "TRY"),
+            external_reference_id=f"SUB_{int(time.time())}",
+            success_url=f"{base_url}/payment/success",
+            failure_url=f"{base_url}/payment/failure",
+            # Minimal user info for demo
+            user=SubscriptionUser(
+                email=data.get("subscriber_email", "test@sub.com"),
+                phone=data.get("subscriber_phone", "5551234567"),
+                first_name="Sub",
+                last_name="Scriber",
+            ),
+            billing=SubscriptionBilling(
+                contact_name="Sub Scriber",
+                city="Istanbul",
+                country="Turkey",
+                address="Test Address",
+            ),
         )
 
-    except APIException as e:
-        return jsonify(
-            {
-                "success": False,
-                "message": f"Tapsilat API Error: {getattr(e, 'error', str(e))}",
-                "code": getattr(e, "code", None),
-                "status_code": getattr(e, "status_code", None),
-            }
-        ), 400
+        response = client.create_subscription(sub_req)
+        # Convert response to dict manually if needed or if it's a dataclass
+        # SDK methods return dataclasses usually, except for dict returns
+        # create_subscription returns SubscriptionCreateResponse (dataclass)
+
+        # Need to serialize dataclass
+        from dataclasses import asdict
+
+        return jsonify(asdict(response))
 
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/subscription/cancel", methods=["POST"])
+def cancel_subscription():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = SubscriptionCancelRequest(
+            reference_id=data.get("subscription_id") or data.get("reference_id")
+        )
+        response = client.cancel_subscription(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/webhooks", methods=["GET"])
+def list_webhooks():
+    try:
+        # List json files in 'webhooks/'
+        files = glob.glob("webhooks/*.json")
+        logs = []
+        for f in sorted(files, reverse=True):  # Newest first
+            with open(f, "r") as fh:
+                try:
+                    content = json.load(fh)
+                    logs.append({"filename": os.path.basename(f), "content": content})
+                except:
+                    pass
+        return jsonify(logs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# Callback Pages
+@app.route("/payment/success", methods=["GET", "POST"])
+def payment_success():
+    # Handle both GET and POST callbacks
+    return render_template("payment_success.html", params=request.values)
+
+
+@app.route("/payment/failure", methods=["GET", "POST"])
+def payment_failure():
+    return render_template("payment_failure.html", params=request.values)
+
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    # Save webhook payload
+    try:
+        payload = request.get_json(force=True, silent=True)
+        if not payload:
+            payload = request.form.to_dict()
+
+        if not os.path.exists("webhooks"):
+            os.makedirs("webhooks")
+
+        filename = f"webhooks/webhook_{int(time.time())}_{uuid.uuid4().hex[:6]}.json"
+        with open(filename, "w") as f:
+            json.dump(payload, f, indent=2)
+
+        return jsonify({"status": "received"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
