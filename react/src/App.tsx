@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   TapsilatProvider,
   useTapsilatOrder,
@@ -7,1257 +7,539 @@ import {
   useTapsilatHealth,
   useTapsilatPaymentTerm,
   useTapsilatWebhook,
+  type OrderCreateRequest,
 } from '@tapsilat/tapsilat-react';
-import type { Order, OrganizationSettings } from '@tapsilat/tapsilat-react';
 import './App.css';
 
-// --- Components ---
-
-const StatusBadge = ({ status }: { status?: string | number }) => {
-  let type = '';
-  const s = String(status ?? '').toLowerCase();
-  
-  const successList = ['completed', 'active', 'succeeded', 'paid', 'approved'];
-  const warningList = ['pending', 'processing', 'created'];
-  const dangerList = ['failed', 'cancelled', 'refunded', 'rejected', 'terminated'];
-
-  if (successList.includes(s)) type = 'success';
-  else if (warningList.includes(s)) type = 'warning';
-  else if (dangerList.includes(s)) type = 'danger';
-  
-  return <span className={`badge ${type}`}>{status || 'UNKNOWN'}</span>;
+// --- Utils ---
+const formatCurrency = (amount: number, currency: string) => {
+  return new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(amount);
 };
 
-const JSONView = ({ data }: { data: unknown }) => (
-  <pre>{JSON.stringify(data, null, 2)}</pre>
-);
+const StatusBadge = ({ status }: { status?: string | number }) => {
+  let color = 'secondary';
+  const s = String(status || '').toLowerCase();
+  
+  if (['paid', 'success', 'active', 'completed', 'approved'].some(x => s.includes(x))) color = 'success';
+  else if (['msg', 'fail', 'cancel', 'reject', 'suspend'].some(x => s.includes(x))) color = 'danger';
+  else if (['wait', 'pending', 'process'].some(x => s.includes(x))) color = 'warning';
+  else if (['info', 'new'].some(x => s.includes(x))) color = 'info';
+
+  return <span className={`badge bg-${color}`}>{status || 'UNKNOWN'}</span>;
+};
 
 // --- Views ---
 
-const Overview = () => {
-  const { checkHealth } = useTapsilatHealth();
-  const { fetchSettings } = useTapsilatOrganization();
-  const [health, setHealth] = useState<{ status: string; timestamp: string } | null>(null);
-  const [settings, setSettings] = useState<OrganizationSettings | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    checkHealth()
-      .then((res) => { if(mounted) setHealth(res); })
-      .catch(console.error);
-    fetchSettings()
-      .then((res) => { if(mounted) setSettings(res); })
-      .catch(console.error);
-    return () => { mounted = false; };
-  }, [checkHealth, fetchSettings]);
-
-  return (
-    <div className="grid-3">
-      <div className="card">
-        <h2>System Status</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ 
-            width: 12, height: 12, borderRadius: '50%', 
-            background: health?.status === 'ok' ? 'var(--success-color)' : 'var(--danger-color)' 
-          }} />
-          <span>{health?.status === 'ok' ? 'Operational' : 'Issues Detected'}</span>
-        </div>
-        <p className="text-secondary" style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
-          Server Time: {health?.timestamp || '-'}
-        </p>
-      </div>
-
-      <div className="card">
-        <h2>Organization Settings</h2>
-        {settings ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-             <div><strong>TTL:</strong> {settings.ttl}s</div>
-             <div><strong>Retry Count:</strong> {settings.retry_count}</div>
-             <div><strong>Payment Allowed:</strong> {settings.allow_payment ? 'Yes' : 'No'}</div>
-          </div>
-        ) : 'Loading...'}
-      </div>
-    </div>
-  );
-};
-
-// --- Webhook Tool ---
-
-const WebhookTester = () => {
-  const { verifyWebhook, lastVerification, error } = useTapsilatWebhook();
-  const [payload, setPayload] = useState('');
-  const [signature, setSignature] = useState('');
-  const [secret, setSecret] = useState('');
-  const [verifying, setVerifying] = useState(false);
-
-  const handleVerify = async () => {
-    setVerifying(true);
-    try {
-      const isValid = await verifyWebhook({ payload, signature, secret });
-      alert(isValid ? 'Signature is VALID ✅' : 'Signature is INVALID ❌');
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  return (
-    <div className="card">
-      <h3>Webhook Signature Tester</h3>
-      <p className="text-secondary" style={{ marginBottom: '1rem' }}>
-        Verify Tapsilat webhook signatures client-side.
-      </p>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '600px' }}>
-        <div>
-          <label>Webhook Secret</label>
-          <input className="input" type="password" value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="Your webhook secret" />
-        </div>
-        <div>
-          <label>Signature Header</label>
-          <input className="input" value={signature} onChange={(e) => setSignature(e.target.value)} placeholder="x-tapsilat-signature" />
-        </div>
-        <div>
-          <label>Payload (JSON)</label>
-          <textarea 
-            className="input" 
-            style={{ minHeight: '150px', fontFamily: 'monospace' }}
-            value={payload} 
-            onChange={(e) => setPayload(e.target.value)} 
-            placeholder='{"event": "..."}'
-          />
-        </div>
-        
-        <button className="btn btn-primary" onClick={handleVerify} disabled={verifying || !secret || !signature || !payload}>
-          {verifying ? 'Verifying...' : 'Verify Signature'}
-        </button>
-
-        {lastVerification && (
-          <div className={`alert ${lastVerification.isValid ? 'alert-success' : 'alert-danger'}`} style={{ marginTop: '1rem', padding: '1rem', borderRadius: '4px', background: lastVerification.isValid ? '#d4edda' : '#f8d7da', color: lastVerification.isValid ? '#155724' : '#721c24' }}>
-            <strong>Result:</strong> {lastVerification.isValid ? 'Valid Signature' : 'Invalid Signature'}
-          </div>
-        )}
-        
-        {error && (
-           <div style={{ marginTop: '1rem', color: 'red' }}>
-             Error: {error.message}
-           </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- Create Views ---
-
-const CreateOrderView = ({ onBack, onCreate }: { onBack: () => void; onCreate: () => void }) => {
-  const { createOrder } = useTapsilatOrder();
-  const [loading, setLoading] = useState(false);
-  
-  // Buyer State with Defaults
-  const [buyer, setBuyer] = useState({
-      name: 'John',
-      surname: 'Doe',
-      email: 'john.doe@example.com',
-      phone: '+905555555555',
-      identityNumber: '11111111111',
-      address: 'Nispetiye Mah. Nispetiye Cad. No: 1',
-      city: 'Istanbul',
-      country: 'Turkey',
-      zipCode: '34340'
-  });
-
-  // Basket State with Defaults
-  const [items, setItems] = useState([
-      { id: 'item1', name: 'Test Product 1', price: 100, type: 'PHYSICAL', category: 'Electronics', quantity: 1 },
-      { id: 'item2', name: 'Test Product 2', price: 50,  type: 'VIRTUAL',  category: 'Software', quantity: 1 }
-  ]);
-
-  const [description, setDescription] = useState('React SDK Test Order');
-  const [currency, setCurrency] = useState('TRY');
-
-  const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-  const handleAddItem = () => {
-      setItems([...items, { 
-          id: `item-${Date.now()}`, 
-          name: 'New Item', 
-          price: 10, 
-          type: 'PHYSICAL', 
-          category: 'General', 
-          quantity: 1 
-      }]);
-  };
-
-  const handleUpdateItem = (index: number, field: string, value: any) => {
-      const newItems = [...items];
-      newItems[index] = { ...newItems[index], [field]: value };
-      setItems(newItems);
-  };
-
-  const handleRemoveItem = (index: number) => {
-      setItems(items.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setLoading(true);
-      try {
-          await createOrder({
-              amount: totalAmount,
-              currency: currency as any,
-              locale: 'tr',
-              metadata: [{ key: 'description', value: description }],
-              buyer: {
-                  name: buyer.name,
-                  surname: buyer.surname,
-                  email: buyer.email,
-                  gsm_number: buyer.phone,
-                  identity_number: buyer.identityNumber,
-                  registration_address: buyer.address,
-                  city: buyer.city,
-                  country: buyer.country,
-                  ip: '127.0.0.1'
-              },
-              billing_address: {
-                  contact_name: `${buyer.name} ${buyer.surname}`,
-                  city: buyer.city,
-                  country: buyer.country,
-                  address: buyer.address,
-                  zip_code: buyer.zipCode,
-                  billing_type: 'PERSONAL'
-              },
-              shipping_address: {
-                  contact_name: `${buyer.name} ${buyer.surname}`,
-                  city: buyer.city,
-                  country: buyer.country,
-                  address: buyer.address,
-                  zip_code: buyer.zipCode
-              },
-              basket_items: items.map(item => ({
-                  id: item.id,
-                  name: item.name,
-                  category1: item.category,
-                  item_type: item.type as any,
-                  price: item.price,
-                  quantity: item.quantity
-              })),
-              payment_success_url: window.location.origin + '/payment/success',
-              payment_failure_url: window.location.origin + '/payment/failure',
-              enabled_installments: [1, 2, 3, 6, 9, 12]
-          });
-          alert('Order created successfully!');
-          onCreate();
-      } catch (e: any) {
-          console.error(e);
-          alert(`Failed: ${e.message}`);
-      } finally {
-          setLoading(false);
-      }
-  };
-
-  return (
-      <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>Create New Order</h3>
-            <button className="btn btn-secondary" onClick={onBack}>Cancel</button>
-          </div>
-          <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                  {/* Buyer Info */}
-                  <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                      <h4>Buyer Information</h4>
-                      <label>Name</label>
-                      <input className="input" value={buyer.name} onChange={e => setBuyer({...buyer, name: e.target.value})} />
-                      <label>Surname</label>
-                      <input className="input" value={buyer.surname} onChange={e => setBuyer({...buyer, surname: e.target.value})} />
-                      <label>Email</label>
-                      <input className="input" value={buyer.email} onChange={e => setBuyer({...buyer, email: e.target.value})} />
-                      <label>Phone</label>
-                      <input className="input" value={buyer.phone} onChange={e => setBuyer({...buyer, phone: e.target.value})} />
-                      <label>Identity / Tax ID</label>
-                      <input className="input" value={buyer.identityNumber} onChange={e => setBuyer({...buyer, identityNumber: e.target.value})} />
-                      <label>Address</label>
-                      <input className="input" value={buyer.address} onChange={e => setBuyer({...buyer, address: e.target.value})} />
-                  </div>
-
-                  {/* Order Defaults */}
-                  <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                     <h4>Order Settings</h4>
-                     <label>Currency</label>
-                     <select className="input" value={currency} onChange={e => setCurrency(e.target.value)}>
-                         <option value="TRY">TRY</option>
-                         <option value="USD">USD</option>
-                         <option value="EUR">EUR</option>
-                     </select>
-                     <label>Description</label>
-                     <input className="input" value={description} onChange={e => setDescription(e.target.value)} />
-                     
-                     <div style={{ marginTop: '2rem', textAlign: 'right' }}>
-                         <h3>Total: {totalAmount} {currency}</h3>
-                     </div>
-                  </div>
-              </div>
-
-              {/* Basket Items */}
-              <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <h4>Basket Items</h4>
-                    <button type="button" className="btn btn-secondary" onClick={handleAddItem}>+ Add Item</button>
-                  </div>
-                  <div className="table-responsive">
-                      <table className="table">
-                          <thead>
-                              <tr>
-                                  <th>Name</th>
-                                  <th>Price</th>
-                                  <th>Qty</th>
-                                  <th>Category</th>
-                                  <th>Type</th>
-                                  <th>Action</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {items.map((item, idx) => (
-                                  <tr key={item.id}>
-                                      <td><input className="input" value={item.name} onChange={e => handleUpdateItem(idx, 'name', e.target.value)} /></td>
-                                      <td><input className="input" type="number" value={item.price} onChange={e => handleUpdateItem(idx, 'price', parseFloat(e.target.value))} style={{width:'80px'}} /></td>
-                                      <td><input className="input" type="number" value={item.quantity} onChange={e => handleUpdateItem(idx, 'quantity', parseInt(e.target.value))} style={{width:'60px'}} /></td>
-                                      <td><input className="input" value={item.category} onChange={e => handleUpdateItem(idx, 'category', e.target.value)} /></td>
-                                      <td>
-                                          <select className="input" value={item.type} onChange={e => handleUpdateItem(idx, 'type', e.target.value)}>
-                                              <option value="PHYSICAL">Physical</option>
-                                              <option value="VIRTUAL">Virtual</option>
-                                          </select>
-                                      </td>
-                                      <td>
-                                          <button type="button" className="btn btn-secondary" style={{color:'red'}} onClick={() => handleRemoveItem(idx)}>X</button>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-                      {loading ? 'Creating Order...' : `Create Order (${totalAmount} ${currency})`}
-                  </button>
-              </div>
-          </form>
-      </div>
-  )
-};
-
-const CreateSubscriptionView = ({ onBack, onCreate }: { onBack: () => void; onCreate: () => void }) => {
-    const { createSubscription } = useTapsilatSubscription();
+const ShopView = () => {
+    const { createOrder } = useTapsilatOrder();
+    const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     
-    const [plan, setPlan] = useState({
-        title: 'Premium Plan',
-        amount: 50,
-        period: 30,
-        currency: 'TRY'
+    // State
+    const [cart, setCart] = useState([
+        { id: 1, name: "Premium Widget", price: 100.0, quantity: 1 }
+    ]);
+    const [settings, setSettings] = useState({
+        conversationId: "CONV_" + Math.floor(Date.now() / 1000),
+        description: "Order via React Dashboard",
+        locale: "tr",
+        currency: "TRY",
+        force3d: true,
+        installment: 1
+    });
+    const [billing, setBilling] = useState({
+        contactName: "John Doe",
+        email: "john@example.com",
+        phone: "5551234567",
+        vat: "11111111111",
+        address: "Besiktas Main St",
+        city: "Istanbul",
+        zip: "34000",
+        sameAddress: true
     });
 
-    const [subscriber, setSubscriber] = useState({
-        firstName: 'Sub',
-        lastName: 'Scriber',
-        email: 'sub@example.com',
-        phone: '+905555555555',
-        identityNumber: '11111111111',
-        address: 'Nispetiye Mah. Nispetiye Cad. No: 1',
-        city: 'Istanbul',
-        country: 'Turkey',
-        zipCode: '34340'
-    });
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    // Helpers
+    const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    
+    const addItem = () => {
+        const id = cart.length > 0 ? Math.max(...cart.map(i=>i.id)) + 1 : 1;
+        setCart([...cart, { id, name: "New Item", price: 50, quantity: 1 }]);
+    };
+    
+    const updateItem = (id: number, field: string, val: any) => {
+        setCart(cart.map(i => i.id === id ? { ...i, [field]: val } : i));
+    };
+    
+    const removeItem = (id: number) => setCart(cart.filter(i => i.id !== id));
+    
+    const handleCreate = async () => {
         setLoading(true);
         try {
-            await createSubscription({
-                title: plan.title,
-                amount: plan.amount,
-                period: plan.period,
-                currency: plan.currency,
-                cycle: 12, // Default 1 year
-                payment_date: 1,
-                user: {
-                    first_name: subscriber.firstName,
-                    last_name: subscriber.lastName,
-                    email: subscriber.email,
-                    phone: subscriber.phone,
-                    address: subscriber.address,
-                    city: subscriber.city,
-                    country: subscriber.country,
-                    zip_code: subscriber.zipCode,
-                    identity_number: subscriber.identityNumber
-                },
-                billing: {
-                    contact_name: `${subscriber.firstName} ${subscriber.lastName}`,
-                    city: subscriber.city,
-                    country: subscriber.country,
-                    address: subscriber.address,
-                    zip_code: subscriber.zipCode
-                },
-                success_url: window.location.origin + '/payment/success',
-                failure_url: window.location.origin + '/payment/failure'
-            });
-            alert('Subscription created successfully!');
-            onCreate();
-        } catch (e: any) {
-             console.error(e);
-             alert(`Failed: ${e.message}`);
+           const payload: OrderCreateRequest = {
+               amount: total,
+               currency: settings.currency as any,
+               locale: settings.locale,
+               conversation_id: settings.conversationId,
+               description: settings.description,
+               three_d_force: settings.force3d,
+               enabled_installments: [1, 2, 3, 6, 9, 12],
+               payment_success_url: window.location.origin + "/payment/success",
+               payment_failure_url: window.location.origin + "/payment/failure",
+               basket_items: cart.map(i => ({
+                   id: String(i.id),
+                   name: i.name,
+                   category1: "General",
+                   item_type: "PHYSICAL",
+                   price: i.price * i.quantity,
+                   quantity: 1
+               })),
+               buyer: {
+                   name: billing.contactName.split(" ")[0] || "John",
+                   surname: billing.contactName.split(" ")[1] || "Doe",
+                   email: billing.email,
+                   gsm_number: billing.phone,
+                   identity_number: billing.vat,
+                   registration_address: billing.address,
+                   city: billing.city,
+                   country: "Turkey",
+                   ip: "127.0.0.1"
+               },
+               billing_address: {
+                   contact_name: billing.contactName,
+                   city: billing.city,
+                   country: "Turkey",
+                   address: billing.address,
+                   zip_code: billing.zip
+               },
+               shipping_address: { // Simplified same address logic
+                   contact_name: billing.contactName,
+                   city: billing.city,
+                   country: "Turkey",
+                   address: billing.address,
+                   zip_code: billing.zip
+               }
+           }; 
+           
+           const res = await createOrder(payload);
+           if (res.checkout_url) {
+               window.location.href = res.checkout_url;
+           } else {
+               alert("Order Created! Ref: " + res.reference_id);
+           }
+        } catch(e: any) {
+            alert("Error: " + e.message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Create New Subscription</h3>
-                <button className="btn btn-secondary" onClick={onBack}>Cancel</button>
-            </div>
-            <form onSubmit={handleSubmit}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+        <div>
+            <h2>Create New Order</h2>
+            <div className="card p-4">
+                <div className="shop-indicator">
+                    <div className={`shop-ind-item ${step >= 1 ? 'active' : ''}`}>1</div>
+                    <div className={`shop-ind-item ${step >= 2 ? 'active' : ''}`}>2</div>
+                    <div className={`shop-ind-item ${step >= 3 ? 'active' : ''}`}>3</div>
+                </div>
+                
+                {/* Step 1 */}
+                <div className={`shop-step ${step === 1 ? 'active' : ''}`}>
+                    <div className="d-flex justify-content-between mb-3">
+                        <h4>Cart & Settings</h4>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setSettings({...settings, conversationId: "CONV_"+Date.now()})}>Randomize</button>
+                    </div>
                     
-                    {/* Plan Settings */}
-                    <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                        <h4>Plan Details</h4>
-                        <label>Title</label>
-                        <input className="input" value={plan.title} onChange={e => setPlan({...plan, title: e.target.value})} />
-                        <label>Amount</label>
-                        <input className="input" type="number" value={plan.amount} onChange={e => setPlan({...plan, amount: parseFloat(e.target.value)})} />
-                        <label>Currency</label>
-                        <select className="input" value={plan.currency} onChange={e => setPlan({...plan, currency: e.target.value})}>
-                            <option value="TRY">TRY</option>
-                            <option value="USD">USD</option>
-                        </select>
-                        <label>Period (Days)</label>
-                        <input className="input" type="number" value={plan.period} onChange={e => setPlan({...plan, period: parseInt(e.target.value)})} />
+                    <div className="row g-3 mb-3">
+                        <div className="col-md-6">
+                            <label className="form-label">Conversation ID</label>
+                            <input className="form-control" value={settings.conversationId} onChange={e=>setSettings({...settings, conversationId: e.target.value})} />
+                        </div>
+                        <div className="col-md-3">
+                            <label className="form-label">Currency</label>
+                            <select className="form-select" value={settings.currency} onChange={e=>setSettings({...settings, currency: e.target.value})}>
+                                <option value="TRY">TRY</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                            </select>
+                        </div>
+                        <div className="col-md-3">
+                            <label className="form-label">3D Secure</label>
+                            <div className="form-check form-switch mt-2">
+                                <input className="form-check-input" type="checkbox" checked={settings.force3d} onChange={e=>setSettings({...settings, force3d: e.target.checked})} />
+                            </div>
+                        </div>
                     </div>
-
-                    {/* Subscriber Info */}
-                    <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                        <h4>Subscriber Information</h4>
-                        <label>First Name</label>
-                        <input className="input" value={subscriber.firstName} onChange={e => setSubscriber({...subscriber, firstName: e.target.value})} />
-                         <label>Last Name</label>
-                        <input className="input" value={subscriber.lastName} onChange={e => setSubscriber({...subscriber, lastName: e.target.value})} />
-                        <label>Email</label>
-                        <input className="input" type="email" value={subscriber.email} onChange={e => setSubscriber({...subscriber, email: e.target.value})} />
-                        <label>Phone</label>
-                        <input className="input" value={subscriber.phone} onChange={e => setSubscriber({...subscriber, phone: e.target.value})} />
-                         <label>Identity Number</label>
-                        <input className="input" value={subscriber.identityNumber} onChange={e => setSubscriber({...subscriber, identityNumber: e.target.value})} />
+                    
+                    {/* Cart */}
+                    <table className="table table-sm">
+                        <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th></th></tr></thead>
+                        <tbody>
+                            {cart.map(item => (
+                                <tr key={item.id}>
+                                    <td><input className="form-control form-control-sm" value={item.name} onChange={e=>updateItem(item.id, 'name', e.target.value)} /></td>
+                                    <td><input type="number" className="form-control form-control-sm" value={item.price} onChange={e=>updateItem(item.id, 'price', parseFloat(e.target.value))} /></td>
+                                    <td><input type="number" className="form-control form-control-sm" value={item.quantity} onChange={e=>updateItem(item.id, 'quantity', parseInt(e.target.value))} /></td>
+                                    <td><button className="btn btn-sm text-danger" onClick={()=>removeItem(item.id)}>x</button></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <button className="btn btn-sm btn-outline-primary mb-3" onClick={addItem}>+ Add Item</button>
+                    
+                    <div className="text-end border-top pt-3">
+                        <h4>Total: {formatCurrency(total, settings.currency)}</h4>
+                        <button className="btn btn-primary" onClick={()=>setStep(2)}>Next: Address</button>
                     </div>
                 </div>
 
-                <div style={{ marginTop: '1rem' }}>
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-                        {loading ? 'Creating Subscription...' : 'Create Subscription'}
-                    </button>
+                {/* Step 2 */}
+                <div className={`shop-step ${step === 2 ? 'active' : ''}`}>
+                    <h4>Billing Info</h4>
+                    <div className="row g-2">
+                         <div className="col-6"><input className="form-control" placeholder="Name" value={billing.contactName} onChange={e=>setBilling({...billing, contactName: e.target.value})} /></div>
+                         <div className="col-6"><input className="form-control" placeholder="Email" value={billing.email} onChange={e=>setBilling({...billing, email: e.target.value})} /></div>
+                         <div className="col-6"><input className="form-control" placeholder="Phone" value={billing.phone} onChange={e=>setBilling({...billing, phone: e.target.value})} /></div>
+                         <div className="col-12"><input className="form-control" placeholder="Address" value={billing.address} onChange={e=>setBilling({...billing, address: e.target.value})} /></div>
+                         <div className="col-4"><input className="form-control" placeholder="City" value={billing.city} onChange={e=>setBilling({...billing, city: e.target.value})} /></div>
+                    </div>
+                    <div className="mt-3 d-flex justify-content-between">
+                        <button className="btn btn-secondary" onClick={()=>setStep(1)}>Back</button>
+                        <button className="btn btn-primary" onClick={()=>setStep(3)}>Next: Payment</button>
+                    </div>
                 </div>
-            </form>
-        </div>
-    )
-};
-
-// --- Order Views ---
-
-const OrderDetailView = ({ order: initialOrder, onBack }: { order: any; onBack: () => void }) => {
-  const {
-    fetchOrderTransactions,
-    fetchOrderSubmerchants,
-    cancelOrder,
-    refundOrder,
-    terminateOrder,
-    manualCallback,
-    fetchOrder
-  } = useTapsilatOrder();
-
-  const { createTerm, deleteTerm, updateTerm, refundTerm } = useTapsilatPaymentTerm();
-
-  const [order, setOrder] = useState(initialOrder); // Local state to update order details
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [submerchants, setSubmerchants] = useState<any[]>([]);
-  const [loadingTx, setLoadingTx] = useState(false);
-  const [loadingSub, setLoadingSub] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'transactions' | 'submerchants' | 'actions' | 'terms'>('info');
-  const [actionLoading, setActionLoading] = useState(false);
-
-  // Refresh order details when performing actions
-  const refreshOrderDetails = useCallback(async () => {
-    try {
-        const updated = await fetchOrder(order.reference_id || order.referenceId);
-        // Merge with existing to keep any extra properties not in SDK type if any
-        setOrder({ ...order, ...updated });
-    } catch (e) {
-        console.error("Failed to refresh order", e);
-    }
-  }, [fetchOrder, order]);
-
-  useEffect(() => {
-    if (activeTab === 'transactions') {
-        setLoadingTx(true);
-        fetchOrderTransactions(order.reference_id || order.referenceId)
-            .then((txs) => setTransactions(txs || []))
-            .catch((e) => {
-                console.error(e);
-                alert('Failed to load transactions');
-            })
-            .finally(() => setLoadingTx(false));
-    } else if (activeTab === 'submerchants') {
-        setLoadingSub(true);
-        // fetchOrderSubmerchants might depend on pagination, here we fetch generic
-        fetchOrderSubmerchants({ page: 1, per_page: 50 })
-            .then((res: any) => setSubmerchants(res.data || []))
-            .catch((e) => {
-                 console.error(e);
-                 // Some endpoints might 404 if no submerchants, ignore or alert
-            })
-            .finally(() => setLoadingSub(false));
-    }
-  }, [activeTab, fetchOrderTransactions, fetchOrderSubmerchants, order.referenceId, order.reference_id]);
-
-  const handleCancel = async () => {
-    if (!confirm('Are you sure you want to cancel this order?')) return;
-    setActionLoading(true);
-    try {
-      await cancelOrder(order.reference_id || order.referenceId);
-      alert('Order cancelled successfully');
-      refreshOrderDetails();
-    } catch (e: any) {
-      alert(`Cancel failed: ${e.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRefund = async () => {
-    const amountStr = prompt('Enter refund amount:');
-    if (!amountStr) return;
-    const amount = parseFloat(amountStr);
-    if (isNaN(amount)) return alert('Invalid amount');
-
-    setActionLoading(true);
-    try {
-      await refundOrder({
-        reference_id: order.reference_id || order.referenceId,
-        amount
-      });
-      alert('Refund processed successfully');
-      refreshOrderDetails();
-    } catch (e: any) {
-      alert(`Refund failed: ${e.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleTerminate = async () => {
-    if (!confirm('Are you sure you want to TERMINATE this order? This action is irreversible.')) return;
-    setActionLoading(true);
-    try {
-      await terminateOrder({
-        reference_id: order.reference_id || order.referenceId,
-        reason: 'Admin termination'
-      });
-      alert('Order terminated');
-      onBack();
-    } catch (e: any) {
-      alert(`Terminate failed: ${e.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleManualCallback = async () => {
-    setActionLoading(true);
-    try {
-      await manualCallback(order.reference_id || order.referenceId);
-      alert('Manual callback triggered');
-    } catch (e: any) {
-      alert(`Callback failed: ${e.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCreateTerm = async () => {
-      const amountStr = prompt('Enter term amount:');
-      if (!amountStr) return;
-      const amount = parseFloat(amountStr);
-      
-      const dueDate = prompt('Enter due date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-      if (!dueDate) return;
-
-      setActionLoading(true);
-      try {
-          await createTerm({
-              order_id: order.order_id || order.id,
-              term_reference_id: `term-${Math.floor(Math.random()*10000)}`,
-              amount,
-              due_date: dueDate,
-              term_sequence: (order.payment_terms?.length || 0) + 1,
-              required: true,
-              status: 'pending'
-          });
-          alert('Term created');
-          refreshOrderDetails();
-      } catch (e: any) {
-          alert(`Create term failed: ${e.message}`);
-      } finally {
-          setActionLoading(false);
-      }
-  };
-
-  const handleUpdateTerm = async (termRefId: string, currentAmount: number) => {
-    const amountStr = prompt('Enter new amount:', String(currentAmount));
-    if (!amountStr) return;
-    const amount = parseFloat(amountStr);
-    
-    setActionLoading(true);
-    try {
-        await updateTerm({
-            term_reference_id: termRefId,
-            amount
-        });
-        alert('Term updated');
-        refreshOrderDetails();
-    } catch (e: any) {
-        alert(`Update term failed: ${e.message}`);
-    } finally {
-        setActionLoading(false);
-    }
-  };
-
-  const handleRefundTerm = async (termRefId: string) => {
-    const amountStr = prompt('Enter refund amount for this term:');
-    if (!amountStr) return;
-    const amount = parseFloat(amountStr);
-
-    setActionLoading(true);
-    try {
-        await refundTerm({
-            term_id: termRefId,
-            amount
-        });
-        alert('Term refunded');
-        refreshOrderDetails();
-    } catch (e: any) {
-        alert(`Refund term failed: ${e.message}`);
-    } finally {
-        setActionLoading(false);
-    }
-  };
-
-  const handleDeleteTerm = async (termRefId: string) => {
-      if(!confirm('Delete this term?')) return;
-      setActionLoading(true);
-      try {
-          await deleteTerm({ term_reference_id: termRefId });
-          alert('Term deleted');
-          refreshOrderDetails();
-      } catch (e: any) {
-          alert(`Delete term failed: ${e.message}`);
-      } finally {
-          setActionLoading(false);
-      }
-  };
-
-  return (
-    <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-        <button className="btn btn-secondary" onClick={onBack} style={{ marginRight: '1rem' }}>
-          &larr; Back
-        </button>
-        <h3>Order Details: {order.reference_id || order.referenceId}</h3>
-        <div style={{ marginLeft: 'auto' }}>
-            <StatusBadge status={order.status} />
-        </div>
-      </div>
-
-      <div className="tabs" style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
-        <button 
-          className={`btn ${activeTab === 'info' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('info')}
-          style={{ marginRight: '0.5rem' }}
-        >
-          Info
-        </button>
-        <button 
-          className={`btn ${activeTab === 'transactions' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('transactions')}
-          style={{ marginRight: '0.5rem' }}
-        >
-          Transactions
-        </button>
-        <button 
-          className={`btn ${activeTab === 'submerchants' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('submerchants')}
-          style={{ marginRight: '0.5rem' }}
-        >
-          Submerchants
-        </button>
-        <button 
-          className={`btn ${activeTab === 'terms' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('terms')}
-          style={{ marginRight: '0.5rem' }}
-        >
-          Payment Terms
-        </button>
-        <button 
-          className={`btn ${activeTab === 'actions' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('actions')}
-        >
-          Actions
-        </button>
-      </div>
-
-      {activeTab === 'info' && (
-        <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                    <h4>Buyer</h4>
-                    <JSONView data={order.buyer} />
+                
+                {/* Step 3 */}
+                <div className={`shop-step ${step === 3 ? 'active' : ''}`}>
+                     <h4>Finalize</h4>
+                     <p>Ready to create order of <b>{formatCurrency(total, settings.currency)}</b>.</p>
+                     <div className="mt-3 d-flex justify-content-between">
+                        <button className="btn btn-secondary" onClick={()=>setStep(2)}>Back</button>
+                        <button className="btn btn-success" onClick={handleCreate} disabled={loading}>{loading ? 'Creating...' : 'Create Order'}</button>
+                    </div>
                 </div>
-                <div>
-                    <h4>Payment</h4>
-                    <p>Amount: {order.amount} {order.currency}</p>
-                    <p>Paid: {order.paid_amount}</p>
-                    <p>Unpaid: {order.unpaid_amount}</p>
-                    {order.checkout_url && (
-                        <p><a href={order.checkout_url} target="_blank" rel="noreferrer">Checkout Link</a></p>
-                    )}
-                </div>
+
             </div>
         </div>
-      )}
-
-      {activeTab === 'submerchants' && (
-        <div>
-           {loadingSub ? <p>Loading...</p> : (
-             <div className="table-responsive">
-               <table className="table">
-                 <thead>
-                   <tr>
-                     <th>ID</th>
-                     <th>Name</th>
-                     <th>Type</th>
-                     <th>Amount</th>
-                   </tr>
-                 </thead>
-                 <tbody>
-                    {submerchants.map((s, i) => (
-                      <tr key={s.id || s.sub_merchant_id || i}>
-                        <td>{s.id || s.sub_merchant_id}</td>
-                        <td>{s.name || s.sub_merchant_name || 'N/A'}</td>
-                        <td>{s.type || s.sub_merchant_type || 'N/A'}</td>
-                        <td>{s.amount}</td>
-                      </tr>
-                    ))}
-                    {submerchants.length === 0 && <tr><td colSpan={4}>No submerchants found</td></tr>}
-                 </tbody>
-               </table>
-             </div>
-           )}
-        </div>
-      )}
-
-      {activeTab === 'terms' && (
-          <div>
-              <div style={{display:'flex', justifyContent:'space-between', marginBottom: '1rem'}}>
-                  <h4>Payment Terms</h4>
-                  <button className="btn btn-primary" onClick={handleCreateTerm} disabled={actionLoading}>+ Add Term</button>
-              </div>
-              
-              {!order.payment_terms || order.payment_terms.length === 0 ? <p>No payment terms configured.</p> : (
-                  <div className="table-responsive">
-                      <table className="table">
-                          <thead>
-                              <tr>
-                                  <th>Ref ID</th>
-                                  <th>Seq</th>
-                                  <th>Amount</th>
-                                  <th>Due Date</th>
-                                  <th>Status</th>
-                                  <th>Action</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {order.payment_terms.map((t: any) => (
-                                  <tr key={t.term_reference_id}>
-                                      <td>{t.term_reference_id}</td>
-                                      <td>{t.term_sequence}</td>
-                                      <td>{t.amount}</td>
-                                      <td>{t.due_date}</td>
-                                      <td><StatusBadge status={t.status} /></td>
-                                      <td>
-                                          <div style={{ display: 'flex', gap: '5px' }}>
-                                            <button className="btn btn-secondary" style={{fontSize: '0.8rem'}} onClick={() => handleUpdateTerm(t.term_reference_id, t.amount)}>Upds</button>
-                                            <button className="btn btn-secondary" style={{fontSize: '0.8rem'}} onClick={() => handleRefundTerm(t.term_reference_id)}>Ref</button>
-                                            <button className="btn btn-secondary" style={{fontSize: '0.8rem', color: 'var(--danger-color)'}} onClick={() => handleDeleteTerm(t.term_reference_id)}>Del</button>
-                                          </div>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-              )}
-          </div>
-      )}
-
-      {activeTab === 'transactions' && (
-        <div>
-          {loadingTx ? <p>Loading...</p> : (
-             <div className="table-responsive">
-             <table className="table">
-               <thead>
-                 <tr>
-                   <th>ID</th>
-                   <th>Type</th>
-                   <th>Amount</th>
-                   <th>Status</th>
-                   <th>Date</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {transactions.map((tx: any, i) => (
-                   <tr key={i}>
-                     <td>{tx.transaction_id || tx.id}</td>
-                     <td>{tx.type}</td>
-                     <td>{tx.amount}</td>
-                     <td><StatusBadge status={tx.status} /></td>
-                     <td>{tx.created_at}</td>
-                   </tr>
-                 ))}
-                 {transactions.length === 0 && <tr><td colSpan={5}>No transactions found</td></tr>}
-               </tbody>
-             </table>
-           </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'actions' && (
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <button className="btn btn-warning" onClick={handleManualCallback} disabled={actionLoading}>
-                Trigger Callback
-            </button>
-            <button className="btn" style={{ backgroundColor: '#dc3545', color: '#fff' }} onClick={handleCancel} disabled={actionLoading}>
-                Cancel Order
-            </button>
-            <button className="btn" style={{ backgroundColor: '#dc3545', color: '#fff' }} onClick={handleRefund} disabled={actionLoading}>
-                Refund Amount
-            </button>
-            <button className="btn" style={{ backgroundColor: '#000', color: '#fff' }} onClick={handleTerminate} disabled={actionLoading}>
-                Terminate Order
-            </button>
-        </div>
-      )}
-    </div>
-  );
+    );
 };
 
 const OrdersView = () => {
-  const { listOrders } = useTapsilatOrder();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [showCreate, setShowCreate] = useState(false);
-
-  // Filter states
-  const [filters, setFilters] = useState({
-      start_date: '',
-      end_date: '',
-      status: '',
-      organization_id: ''
-  });
-
-  const refreshOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Pass filters to listOrders
-      const params: any = { page: 1, per_page: 10 };
-      if (filters.start_date) params.start_date = filters.start_date;
-      if (filters.end_date) params.end_date = filters.end_date;
-      if (filters.status) params.status = filters.status;
-      if (filters.organization_id) params.organization_id = filters.organization_id;
-
-      const res = await listOrders(params);
-
-      // Manual map
-      const raw = res as any;
-      const orderData = raw.rows || raw.data || [];
-      setOrders(orderData);
-    } catch (e) {
-      console.error(e);
-      const msg = e instanceof Error ? e.message : String(e);
-      alert("Failed to fetch orders: " + msg);
-    } finally {
-      setLoading(false);
-    }
-  }, [listOrders, filters.status, filters.start_date, filters.end_date, filters.organization_id]); 
-
-  useEffect(() => {
-    // Initial load
-    refreshOrders();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
-
-  const handleFilterSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      refreshOrders();
-  };
-
-  if (showCreate) {
-      return <CreateOrderView onBack={() => setShowCreate(false)} onCreate={() => { setShowCreate(false); refreshOrders(); }} />;
-  }
-
-  if (selectedOrder) {
-      return <OrderDetailView order={selectedOrder} onBack={() => { setSelectedOrder(null); refreshOrders(); }} />;
-  }
-
-  return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h3>Orders</h3>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          + New Order
-        </button>
-      </div>
-
-      <form onSubmit={handleFilterSubmit} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap', backgroundColor: 'var(--bg-secondary)', padding: '0.5rem', borderRadius: '4px' }}>
-          <input type="date" value={filters.start_date} onChange={e => setFilters({...filters, start_date: e.target.value})} placeholder="Start Date" style={{padding:'0.25rem'}} />
-          <input type="date" value={filters.end_date} onChange={e => setFilters({...filters, end_date: e.target.value})} placeholder="End Date" style={{padding:'0.25rem'}} />
-          <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} style={{padding:'0.25rem'}}>
-              <option value="">All Statuses</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CREATED">Created</option>
-              <option value="CANCELLED">Cancelled</option>
-              <option value="REFUNDED">Refunded</option>
-          </select>
-          <input type="text" value={filters.organization_id} onChange={e => setFilters({...filters, organization_id: e.target.value})} placeholder="Org ID" style={{padding:'0.25rem'}} />
-          <button type="submit" className="btn btn-secondary" disabled={loading}>Filter</button>
-          <button type="button" className="btn btn-secondary" onClick={refreshOrders} disabled={loading}>Refresh</button>
-      </form>
-
-      {orders.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
-          No orders found.
-        </p>
-      ) : (
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Reference</th>
-                <th>Buyer</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => {
-                 const anyOrder = o as any; 
-                 return (
-                <tr key={anyOrder.id || anyOrder.order_id || Math.random()}>
-                  <td>{anyOrder.id}</td>
-                  <td>{anyOrder.reference_id || anyOrder.referenceId}</td>
-                  <td>{anyOrder.buyer?.name} {anyOrder.buyer?.surname}</td>
-                  <td>{anyOrder.total || anyOrder.amount} {anyOrder.currency}</td>
-                  <td><StatusBadge status={anyOrder.status} /></td>
-                  <td>
-                    <button className="btn btn-secondary" onClick={() => setSelectedOrder(anyOrder)}>
-                        View
-                    </button>
-                  </td>
-                </tr>
-              )})}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// --- Subscription Views ---
-
-const SubscriptionDetailView = ({ sub, onBack }: { sub: any; onBack: () => void }) => {
-    const { 
-        fetchSubscription, 
-        cancelSubscription, 
-        redirectSubscription 
-    } = useTapsilatSubscription();
-
-    const [details, setDetails] = useState(sub);
+    const { listOrders, fetchOrder, cancelOrder, refundOrder } = useTapsilatOrder();
+    const [orders, setOrders] = useState<any[]>([]);
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
-    const [actionLoading, setActionLoading] = useState(false);
+    const [filter, setFilter] = useState({ refId: '', orgId: '' });
+    
+    // Deail Modal
+    const [selectedOrder, setSelectedOrder] = useState<any>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
 
-    useEffect(() => {
-        // Fetch fresh details if possible, or just use passed prop
-        // The list API provided basic details, fetchSubscription might provide more
-        if (sub.reference_id || sub.id) {
-            setLoading(true);
-            // Assuming we prefer reference_id, but API might use id? 
-            // The SDK fetchSubscription takes SubscriptionGetRequest which needs reference_id I think?
-            const ref = sub.reference_id || sub.id;
-            fetchSubscription({ reference_id: ref })
-                .then(res => setDetails(res))
-                .catch(console.error)
-                .finally(() => setLoading(false));
-        }
-    }, [sub, fetchSubscription]);
-
-    const handleCancel = async () => {
-        if(!confirm('Cancel subscription?')) return;
-        setActionLoading(true);
+    const loadOrders = useCallback(async () => {
+        setLoading(true);
         try {
-            await cancelSubscription({ reference_id: details.reference_id || details.id });
-            alert('Subscription cancelled');
-            onBack();
-        } catch(e: any) {
-            alert(`Failed: ${e.message}`);
-        } finally {
-            setActionLoading(false);
-        }
+            const res: any = await listOrders({ 
+                page, 
+                per_page: 10,
+                organization_id: filter.orgId,
+                related_reference_id: filter.refId
+            });
+            setOrders(res.items || res.rows || []);
+        } catch(e) { console.error(e); }
+        finally { setLoading(false); }
+    }, [listOrders, page, filter]); // eslint-disable-line
+
+    useEffect(() => { loadOrders(); }, [loadOrders]);
+
+    const openDetail = async (refId: string) => {
+        setDetailLoading(true); 
+        try {
+            const data = await fetchOrder(refId); 
+            setSelectedOrder(data);
+        } catch(e) { alert("Failed to load detail"); }
+        finally { setDetailLoading(false); }
     };
-
-    const handleRedirect = async () => {
-        setActionLoading(true);
-        try {
-            const res = await redirectSubscription({ subscription_id: details.reference_id || details.id });
-            if (res.url) {
-                window.open(res.url, '_blank');
-            } else {
-                alert('No redirect URL returned');
-            }
-        } catch(e: any) {
-            alert(`Failed: ${e.message}`);
-        } finally {
-            setActionLoading(false);
-        }
+    
+    // Actions
+    const handleCancel = async () => {
+        if(!selectedOrder || !confirm("Cancel order?")) return;
+        try { await cancelOrder(selectedOrder.reference_id); alert("Cancelled!"); openDetail(selectedOrder.reference_id); loadOrders(); }
+        catch(e: any) { alert(e.message); }
+    };
+    
+     const handleRefund = async () => {
+        if(!selectedOrder) return;
+        const amt = prompt("Amount?");
+        if(!amt) return;
+        try { await refundOrder({ reference_id: selectedOrder.reference_id, amount: parseFloat(amt) }); alert("Refunded!"); openDetail(selectedOrder.reference_id); }
+        catch(e: any) { alert(e.message); }
     };
 
     return (
-        <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                <button className="btn btn-secondary" onClick={onBack} style={{ marginRight: '1rem' }}>
-                  &larr; Back
-                </button>
-                <h3>Subscription: {details.reference_id}</h3>
-                <div style={{ marginLeft: 'auto' }}>
-                    <StatusBadge status={details.status} />
-                </div>
-            </div>
-            
-            {loading ? <p>Loading details...</p> : (
-                <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                        <div>
-                             <h4>Plan</h4>
-                             <p>{details.title || details.plan_name}</p>
-                             <p>Period: {details.period} {details.period_unit || 'days'}</p>
-                             <p>Price: {details.price} {details.currency}</p>
-                        </div>
-                        <div>
-                            <h4>Customer</h4>
-                            {details.subscriber ? <JSONView data={details.subscriber} /> : <p>N/A</p>}
-                        </div>
-                    </div>
+        <div>
+           <div className="d-flex justify-content-between mb-3">
+               <h2>Order List</h2>
+               <button className="btn btn-primary btn-sm" onClick={loadOrders}>Refresh</button>
+           </div>
+           
+           <div className="card p-3 mb-3 bg-light">
+               <div className="row g-2">
+                   <div className="col-md-3"><input className="form-control form-control-sm" placeholder="Ref ID" value={filter.refId} onChange={e=>setFilter({...filter, refId: e.target.value})} /></div>
+                   <div className="col-md-3"><input className="form-control form-control-sm" placeholder="Org ID" value={filter.orgId} onChange={e=>setFilter({...filter, orgId: e.target.value})} /></div>
+                   <div className="col-md-2"><button className="btn btn-secondary btn-sm w-100" onClick={loadOrders}>Filter</button></div>
+               </div>
+           </div>
 
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button 
-                            className="btn btn-primary" 
-                            onClick={handleRedirect}
-                            disabled={actionLoading}
-                        >
-                            Go to Subscription Page
-                        </button>
-                        <button 
-                            className="btn" 
-                            style={{ backgroundColor: '#dc3545', color: '#fff' }} 
-                            onClick={handleCancel}
-                            disabled={actionLoading}
-                        >
-                            Cancel Subscription
-                        </button>
-                    </div>
-                </>
-            )}
+           <div className="card p-0">
+               <table className="table table-hover mb-0">
+                   <thead className="table-light"><tr><th>Ref ID</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+                   <tbody>
+                       {loading ? <tr><td colSpan={5} className="text-center">Loading...</td></tr> : 
+                        orders.map(o => (
+                           <tr key={o.reference_id}>
+                               <td className="font-monospace">{o.reference_id}</td>
+                               <td>{o.amount} {o.currency}</td>
+                               <td><StatusBadge status={o.status} /></td>
+                               <td>{o.created_at}</td>
+                               <td><button className="btn btn-sm btn-info" onClick={()=>openDetail(o.reference_id)}>View</button></td>
+                           </tr>
+                       ))}
+                   </tbody>
+               </table>
+               <div className="card-footer d-flex justify-content-between">
+                   <button className="btn btn-sm btn-outline-secondary" disabled={page<=1} onClick={()=>setPage(page-1)}>Prev</button>
+                   <span>Page {page}</span>
+                   <button className="btn btn-sm btn-outline-secondary" onClick={()=>setPage(page+1)}>Next</button>
+               </div>
+           </div>
+           
+           {/* Detail Modal Overlay (Custom simple modal for React example without Bootstrap JS dependency) */}
+           {selectedOrder && (
+               <div className="modal d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+                   <div className="modal-dialog modal-xl">
+                       <div className="modal-content">
+                           <div className="modal-header">
+                               <h5 className="modal-title">Order: {selectedOrder.reference_id}</h5>
+                               <button className="btn-close" onClick={()=>setSelectedOrder(null)}></button>
+                           </div>
+                           <div className="modal-body">
+                               {detailLoading ? "Refreshing..." : (
+                                   <div className="row">
+                                       <div className="col-md-6">
+                                           <h6>Basic Info</h6>
+                                           <table className="table table-sm table-bordered">
+                                               <tbody>
+                                                   <tr><th>Status</th><td><StatusBadge status={selectedOrder.status} /></td></tr>
+                                                   <tr><th>Amount</th><td>{selectedOrder.amount} {selectedOrder.currency}</td></tr>
+                                                   <tr><th>Conversation</th><td>{selectedOrder.conversation_id}</td></tr>
+                                               </tbody>
+                                           </table>
+                                           <div className="d-flex gap-2">
+                                               <button className="btn btn-danger btn-sm" onClick={handleCancel}>Cancel</button>
+                                               <button className="btn btn-warning btn-sm" onClick={handleRefund}>Refund</button>
+                                           </div>
+                                       </div>
+                                       <div className="col-md-6">
+                                            <h6>Raw Data</h6>
+                                            <pre style={{maxHeight:'200px', overflow:'auto', fontSize:'0.7rem'}}>{JSON.stringify(selectedOrder, null, 2)}</pre>
+                                       </div>
+                                   </div>
+                               )}
+                           </div>
+                       </div>
+                   </div>
+               </div>
+           )}
         </div>
     );
 };
 
 const SubscriptionsView = () => {
-    const { listSubscriptions } = useTapsilatSubscription();
+    const { listSubscriptions, createSubscription, cancelSubscription } = useTapsilatSubscription();
     const [subs, setSubs] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [selectedSub, setSelectedSub] = useState<any>(null);
-    const [showCreate, setShowCreate] = useState(false);
+    
+    useEffect(() => { 
+        listSubscriptions().then((res:any) => setSubs(res.items||res.rows||[])); 
+    }, [listSubscriptions]); // eslint-disable-line
 
-    const refreshSubs = useCallback(() => {
-        setLoading(true);
-        listSubscriptions().then(res => {
-            setSubs((res as any).rows || (res as any).data || []);
-        }).catch(console.error)
-        .finally(() => setLoading(false));
-    }, [listSubscriptions]);
-
-    useEffect(() => {
-        refreshSubs();
-    }, [refreshSubs]);
-
-    if (showCreate) {
-        return <CreateSubscriptionView onBack={() => setShowCreate(false)} onCreate={() => { setShowCreate(false); refreshSubs(); }} />;
-    }
-
-    if (selectedSub) {
-        return <SubscriptionDetailView sub={selectedSub} onBack={() => { setSelectedSub(null); refreshSubs(); }} />;
-    }
+    const handleCreate = async () => {
+        try {
+            const res = await createSubscription({
+                title: "Gold Plan", amount: 49.90, period: 30, currency: "TRY",
+                success_url: "http://localhost", failure_url: "http://localhost",
+                user: { email: "sub@test.com", first_name: "Sub", last_name: "User", phone: "5551112233" },
+                billing: { contact_name: "Sub User", city: "Istanbul", country: "Turkey", address: "Sisli", zip_code: "34000" }
+            });
+            if(res.checkout_url) window.location.href = res.checkout_url;
+        } catch(e: any) { alert(e.message); }
+    };
+    
+    const handleCancel = async (id: string) => {
+        if(!confirm("Cancel?")) return;
+        try { await cancelSubscription({ reference_id: id }); alert("Cancelled"); }
+        catch(e: any) { alert(e.message); }
+    };
 
     return (
         <div>
+            <div className="d-flex justify-content-between mb-3">
+                <h2>Subscriptions</h2>
+                <button className="btn btn-primary" onClick={handleCreate}>+ New Subscription</button>
+            </div>
             <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h3>Subscriptions</h3>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Sub</button>
-                        <button className="btn btn-secondary" onClick={refreshSubs} disabled={loading}>
-                            {loading ? 'Refreshing...' : 'Refresh'}
-                        </button>
-                    </div>
-                </div>
-                <div className="table-responsive">
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Reference ID</th>
-                                <th>Plan</th>
-                                <th>Status</th>
-                                <th>Period</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {subs.map((s) => (
-                                <tr key={s.reference_id || s.id}>
-                                    <td>{s.reference_id}</td>
-                                    <td>{s.title}</td>
-                                    <td><StatusBadge status={s.status} /></td>
-                                    <td>{s.period} days</td>
-                                    <td>
-                                        <button className="btn btn-secondary" onClick={() => setSelectedSub(s)}>
-                                            View
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {subs.length === 0 && <tr><td colSpan={5}>No subscriptions found.</td></tr>}
-                        </tbody>
-                    </table>
+                <div className="list-group list-group-flush">
+                    {subs.map(s => (
+                        <div key={s.reference_id} className="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 className="mb-1">{s.title} ({s.reference_id})</h5>
+                                <small>Status: {s.status} | Period: {s.period} days | Amount: {s.amount}</small>
+                            </div>
+                            <button className="btn btn-sm btn-danger" onClick={()=>handleCancel(s.reference_id)}>Cancel</button>
+                        </div>
+                    ))}
+                    {subs.length===0 && <div className="p-3 text-center">No subscriptions</div>}
                 </div>
             </div>
         </div>
     );
 };
 
-// --- Main App Shell ---
+const SubmerchantsView = () => {
+    const { fetchOrderSubmerchants } = useTapsilatOrder();
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
 
-const Dashboard = () => {
-  const [view, setView] = useState('overview');
+    useEffect(() => {
+        setLoading(true);
+        fetchOrderSubmerchants({ page: 1, per_page: 20 })
+            .then((res: any) => setItems(res.items || []))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, [fetchOrderSubmerchants]); // eslint-disable-line
 
-  return (
-    <div className="app-container">
-      <aside className="sidebar">
-        <div className="brand">Tapsilat React</div>
-        <nav className="nav-menu">
-          <button className={`nav-item ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>
-            Overview
-          </button>
-          <button className={`nav-item ${view === 'orders' ? 'active' : ''}`} onClick={() => setView('orders')}>
-            Orders
-          </button>
-          <button className={`nav-item ${view === 'subscriptions' ? 'active' : ''}`} onClick={() => setView('subscriptions')}>
-            Subscriptions
-          </button>
-          <button className={`nav-item ${view === 'webhooks' ? 'active' : ''}`} onClick={() => setView('webhooks')}>
-            Webhook Tool
-          </button>
-        </nav>
-      </aside>
-      <main className="main-content">
-        {view === 'overview' && <Overview />}
-        {view === 'orders' && <OrdersView />}
-        {view === 'subscriptions' && <SubscriptionsView />}
-        {view === 'webhooks' && <WebhookTester />}
-      </main>
-    </div>
-  );
+    return (
+        <div>
+            <h2>Submerchants</h2>
+            <div className="card">
+                <table className="table table-striped">
+                    <thead><tr><th>ID</th><th>Type</th><th>Name</th><th>Email</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {loading ? <tr><td colSpan={5}>Loading...</td></tr> : 
+                         items.map((s,i) => (
+                             <tr key={i}>
+                                 <td className="font-monospace">{s.submerchant_id}</td>
+                                 <td>{s.type}</td>
+                                 <td>{s.name}</td>
+                                 <td>{s.email}</td>
+                                 <td><StatusBadge status={s.status===1?'Active':'Inactive'} /></td>
+                             </tr>
+                         ))}
+                         {items.length===0 && !loading && <tr><td colSpan={5}>No data</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 };
+
+const OrganizationView = () => {
+    const { fetchSettings } = useTapsilatOrganization();
+    const [settings, setSettings] = useState<any>(null);
+
+    useEffect(() => { fetchSettings().then(setSettings).catch(console.error); }, [fetchSettings]); // eslint-disable-line
+
+    return (
+        <div>
+            <h2>Organization Settings</h2>
+            <div className="card p-4">
+                {settings ? (
+                    <table className="table table-bordered">
+                        <tbody>
+                            <tr><th>Org ID</th><td>{settings.organization_id}</td></tr>
+                            <tr><th>Name</th><td>{settings.name}</td></tr>
+                            <tr><th>Status</th><td>{settings.status}</td></tr>
+                            <tr><th>Created At</th><td>{settings.created_at}</td></tr>
+                        </tbody>
+                    </table>
+                ) : <p>Loading...</p>}
+            </div>
+        </div>
+    );
+};
+
+const WebhookView = () => {
+    // Note: React app usually can't monitor server-side webhooks unless there's a backend endpoint
+    // We will assume simpler client-side verify tool or static placeholder
+    return (
+        <div>
+            <h2>Webhook Monitor</h2>
+            <div className="card p-4">
+                <p>Webhook monitoring requires a backend polling endpoint. This is a React SPA.</p>
+                <div className="alert alert-info">Use the PHP/Go examples or a real backend to receive webhooks.</div>
+            </div>
+        </div>
+    );
+};
+
+// --- App Shell ---
+
+function DashboardShell() {
+    const [view, setView] = useState('shop');
+    
+    const renderView = () => {
+        switch(view) {
+            case 'shop': return <ShopView />;
+            case 'orders': return <OrdersView />;
+            case 'subscriptions': return <SubscriptionsView />;
+            case 'submerchants': return <SubmerchantsView />;
+            case 'organization': return <OrganizationView />;
+            case 'webhooks': return <WebhookView />;
+            default: return <ShopView />;
+        }
+    };
+
+    return (
+        <div>
+            <nav className="sidebar">
+                <a href="#" className="brand"><i className="fas fa-cubes me-2"></i> Tapsilat React</a>
+                <div className="nav-menu">
+                    <button className={`nav-item ${view==='shop'?'active':''}`} onClick={()=>setView('shop')}><i className="fas fa-shopping-cart"></i> New Order</button>
+                    <button className={`nav-item ${view==='orders'?'active':''}`} onClick={()=>setView('orders')}><i className="fas fa-list"></i> Orders</button>
+                    <button className={`nav-item ${view==='subscriptions'?'active':''}`} onClick={()=>setView('subscriptions')}><i className="fas fa-sync"></i> Subscriptions</button>
+                    <button className={`nav-item ${view==='submerchants'?'active':''}`} onClick={()=>setView('submerchants')}><i className="fas fa-store"></i> Submerchants</button>
+                    <button className={`nav-item ${view==='organization'?'active':''}`} onClick={()=>setView('organization')}><i className="fas fa-building"></i> Organization</button>
+                    <button className={`nav-item ${view==='webhooks'?'active':''}`} onClick={()=>setView('webhooks')}><i className="fas fa-broadcast-tower"></i> Webhooks</button>
+                </div>
+            </nav>
+            <main className="main-content">
+                {renderView()}
+            </main>
+        </div>
+    );
+}
 
 function App() {
   const [token, setToken] = useState('');
-  const [authed, setAuthed] = useState(false);
+  const [isAuth, setIsAuth] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-    
-    // Sanitize token: remove whitespace and 'Bearer ' prefix
-    const cleanToken = token.trim().replace(/^Bearer\s+/i, '');
-    
-    if (cleanToken.length < 10) {
-        alert('Token is too short');
-        return;
-    }
-
-    // Basic character validation (alphanumeric, dot, dash, underscore)
-    // allowing standard JWT charset (Base64Url)
-    if (!/^[a-zA-Z0-9._-]+$/.test(cleanToken)) {
-        alert('Token contains invalid characters. Please enter only the token string (without "Bearer " prefix) and ensure no extra spaces.');
-        return;
-    }
-
-    setToken(cleanToken);
-    setAuthed(true);
-  };
-
-  if (!authed) {
-    return (
-      <div className="auth-container">
-        <form className="auth-card" onSubmit={handleLogin}>
-          <h2 style={{ textAlign: 'center', marginBottom: '2rem' }}>Tapsilat Dashboard</h2>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Bearer Token</label>
-            <input 
-              className="input" 
-              type="password" 
-              placeholder="Enter your API token" 
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
+  if(!isAuth) {
+      return (
+          <div className="auth-container">
+              <div className="auth-card">
+                  <h3 className="text-center mb-4">Tapsilat Dashboard</h3>
+                  <div className="mb-3">
+                      <label>API Key (Bearer Token)</label>
+                      <input className="form-control" type="password" value={token} onChange={e=>setToken(e.target.value)} />
+                  </div>
+                  <button className="btn btn-primary w-100" onClick={()=>setIsAuth(true)}>Connect</button>
+              </div>
           </div>
-          <button className="btn btn-primary" style={{ width: '100%' }} type="submit">
-            Connect
-          </button>
-        </form>
-      </div>
-    );
+      );
   }
 
   return (
     <TapsilatProvider config={{ bearerToken: token, baseURL: 'https://panel.tapsilat.dev/api/v1' }}>
-      <Dashboard />
+      <DashboardShell />
     </TapsilatProvider>
   );
 }
