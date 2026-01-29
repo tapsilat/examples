@@ -311,15 +311,82 @@ public class ApiController : ControllerBase
     public IActionResult GetWebhooks()
     {
         var logs = new List<object>();
-        var files = Directory.GetFiles(_webhookDir, "*.json").OrderByDescending(f => f);
-        foreach (var file in files)
+        if (Directory.Exists(_webhookDir))
         {
-             var content = System.IO.File.ReadAllText(file);
-             object jsonContent = null;
-             try { jsonContent = JsonSerializer.Deserialize<object>(content); } catch { }
-             logs.Add(new { filename = Path.GetFileName(file), content = jsonContent, raw = content });
+             var files = Directory.GetFiles(_webhookDir, "*.json").OrderByDescending(f => f);
+             foreach (var file in files)
+             {
+                  var content = System.IO.File.ReadAllText(file);
+                  object jsonContent = null;
+                  try { jsonContent = JsonSerializer.Deserialize<object>(content); } catch { }
+                  logs.Add(new { filename = Path.GetFileName(file), content = jsonContent, raw = content });
+             }
         }
         return Ok(logs);
+    }
+
+    [HttpGet("api/order/submerchants")]
+    public async Task<IActionResult> GetOrderSubmerchants([FromQuery] int page = 1, [FromQuery] int per_page = 10)
+    {
+        try
+        {
+            var response = await _tapsilatClient.Orders.GetSubmerchantsAsync(page, per_page);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("api/organization/settings")]
+    public async Task<IActionResult> GetOrganizationSettings()
+    {
+        try
+        {
+            var response = await _tapsilatClient.Organization.GetSettingsAsync();
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+             return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("api/term/create")]
+    public async Task<IActionResult> CreateTerm([FromBody] CreateTermModel req)
+    {
+        try
+        {
+            var request = new CreateOrderTermRequest
+            {
+                ReferenceId = req.OrderReferenceId,
+                Amount = req.Amount,
+                DueDate = req.DueDate, 
+                Required = req.Required
+                // Data = req.Data // Optional
+            };
+            var response = await _tapsilatClient.Orders.CreateOrderTermAsync(request);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+             return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("api/term/delete")]
+    public async Task<IActionResult> DeleteTerm([FromBody] DeleteTermModel req)
+    {
+        try
+        {
+            await _tapsilatClient.Orders.DeleteOrderTermAsync(req.TermReferenceId);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+             return StatusCode(500, new { error = ex.Message });
+        }
     }
 
     private string GenerateConversationId()
@@ -352,4 +419,19 @@ public class RefundOrderModel
 {
     [JsonPropertyName("reference_id")] public string ReferenceId { get; set; }
     [JsonPropertyName("amount")] public string Amount { get; set; }
+}
+
+public class CreateTermModel
+{
+    [JsonPropertyName("order_reference_id")] public string OrderReferenceId { get; set; }
+    [JsonPropertyName("amount")] public decimal Amount { get; set; }
+    [JsonPropertyName("due_date")] public string DueDate { get; set; }
+    [JsonPropertyName("required")] public bool Required { get; set; }
+    // [JsonPropertyName("data")] public string Data { get; set; }
+}
+
+public class DeleteTermModel
+{
+    [JsonPropertyName("order_id")] public string OrderId { get; set; }
+    [JsonPropertyName("term_reference_id")] public string TermReferenceId { get; set; }
 }

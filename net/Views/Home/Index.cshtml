@@ -148,7 +148,12 @@
         <a class="nav-link" onclick="switchView('terms', this)"
           ><i class="fas fa-file-invoice-dollar me-2"></i> Payment Terms</a
         >
-
+        <a class="nav-link" onclick="switchView('submerchants', this)"
+          ><i class="fas fa-store me-2"></i> Submerchants</a
+        >
+        <a class="nav-link" onclick="switchView('organization', this)"
+          ><i class="fas fa-building me-2"></i> Organization</a
+        >
         <a class="nav-link" onclick="switchView('webhooks', this)"
           ><i class="fas fa-broadcast-tower me-2"></i> Webhook Monitor</a
         >
@@ -758,8 +763,51 @@
       </div>
 
       <!-- SUBMERCHANTS VIEW -->
+      <div id="view-submerchants" class="tab-view">
+        <h2 class="d-flex justify-content-between align-items-center mb-3">
+          Submerchants
+          <button class="btn btn-primary btn-sm" onclick="fetchSubmerchants()">
+            Refresh List
+          </button>
+        </h2>
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Submerchant ID</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="submerchants-table-body">
+                  <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer d-flex justify-content-between">
+             <button class="btn btn-sm btn-outline-secondary" disabled>Previous</button>
+             <span>Page 1</span>
+             <button class="btn btn-sm btn-outline-secondary" disabled>Next</button>
+          </div>
+        </div>
+      </div>
 
-      <!-- WEBHOOK MONITOR -->
+      <!-- ORGANIZATION VIEW -->
+      <div id="view-organization" class="tab-view">
+        <h2 class="mb-4">Organization Settings</h2>
+        <div class="card">
+          <div class="card-body" id="org-settings-body">
+              <div class="text-center py-5">Loading settings...</div>
+          </div>
+        </div>
+      </div>
       <div id="view-webhooks" class="tab-view">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2>Webhook Monitor</h2>
@@ -815,8 +863,9 @@
 
         if (viewName === "orders") fetchOrders();
         if (viewName === "subscriptions") fetchSubscriptions();
-        if (viewName === "subscriptions") fetchSubscriptions();
         if (viewName === "terms") fetchTerms();
+        if (viewName === "submerchants") fetchSubmerchants();
+        if (viewName === "organization") fetchOrganizationSettings();
         if (viewName === "shop") {
           renderCart();
           initShopUI();
@@ -1499,6 +1548,56 @@
       }
 
       // Mapping the onclick
+      // --- SUBMERCHANTS LOGIC ---
+      async function fetchSubmerchants() {
+        console.log("[Submerchants] Fetching...");
+        const tbody = document.getElementById("submerchants-table-body");
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+        
+        try {
+            const res = await fetch("/api/order/submerchants?page=1&per_page=10");
+            const json = await res.json();
+            
+            if(!json.rows || json.rows.length === 0) {
+                 tbody.innerHTML = '<tr><td colspan="5" class="text-center">No submerchants found.</td></tr>';
+                 return;
+            }
+
+            tbody.innerHTML = json.rows.map(s => `
+                <tr>
+                    <td class="font-monospace">${s.submerchant_id || s.reference_id || "-"}</td>
+                    <td>${s.type || "PERSONAL"}</td>
+                    <td>${s.name || "-"}</td>
+                    <td>${s.email || "-"}</td>
+                    <td><span class="badge bg-${s.status === 1 ? 'success' : 'secondary'}">${s.status === 1 ? 'Active' : 'Inactive'}</span></td>
+                </tr>
+            `).join("");
+
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error: ${e.message}</td></tr>`;
+        }
+      }
+
+      // --- ORGANIZATION LOGIC ---
+      async function fetchOrganizationSettings() {
+          const div = document.getElementById("org-settings-body");
+          div.innerHTML = "Loading...";
+          try {
+              const res = await fetch("/api/organization/settings");
+              const json = await res.json();
+              div.innerHTML = `
+                <table class="table table-bordered">
+                    <tr><th style="width:200px">Organization ID</th><td>${json.organization_id || "-"}</td></tr>
+                    <tr><th>Name</th><td>${json.name || "-"}</td></tr>
+                    <tr><th>Status</th><td>${json.status || "-"}</td></tr>
+                    <tr><th>Created At</th><td>${json.created_at || "-"}</td></tr>
+                </table>
+              `;
+          } catch(e) {
+              div.innerHTML = `<div class="alert alert-danger">Error loading settings: ${e.message}</div>`;
+          }
+      }
+
       window.fetchTerms = fetchTerms;
 
       // --- WEBHOOK MONITOR LOGIC ---
