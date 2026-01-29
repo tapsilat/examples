@@ -1689,7 +1689,6 @@ dependencies = [
 [[package]]
 name = "tapsilat"
 version = "2025.9.19"
-source = "git+https://github.com/tapsilat/tapsilat-rust?tag=v2025.12.18#4c20a09e1dddea0b592bdce104d835d47f6091b9"
 dependencies = [
  "chrono",
  "regex",

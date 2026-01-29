@@ -607,6 +607,13 @@ fn save_webhook(type_: &str, body: web::Bytes) {
     }
 }
 
+async fn get_organization_settings(data: web::Data<AppState>) -> impl Responder {
+    match data.client.get_organization_settings() {
+        Ok(val) => HttpResponse::Ok().json(val),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})),
+    }
+}
+
 async fn webhook_callback(path: web::Path<String>, body: web::Bytes) -> impl Responder {
     let type_ = path.into_inner(); 
     save_webhook(&type_, body);
@@ -699,6 +706,9 @@ async fn main() -> std::io::Result<()> {
             .route("/api/fail_callback", web::post().to(|b: web::Bytes| webhook_callback(web::Path::from("fail".to_string()), b)))
             .route("/api/refund_callback", web::post().to(|b: web::Bytes| webhook_callback(web::Path::from("refund".to_string()), b)))
             .route("/api/cancel_callback", web::post().to(|b: web::Bytes| webhook_callback(web::Path::from("cancel".to_string()), b)))
+            
+            // Organization
+            .route("/api/organization/settings", web::get().to(get_organization_settings))
     })
     .bind(format!("0.0.0.0:{}", port))?
     .run()
