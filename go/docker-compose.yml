@@ -2,9 +2,9 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: .docker/Dockerfile
     ports:
-      - '5005:5005'
+      - "5005:5005"
     environment:
       - TAPSILAT_API_KEY=${TAPSILAT_API_KEY}
       - GIN_MODE=debug
