@@ -3,13 +3,13 @@ import glob
 import json
 import time
 import uuid
-from datetime import datetime
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
 # Tapsilat imports
-from tapsilat_py import APIException, TapsilatAPI
+from tapsilat_py import TapsilatAPI
+from tapsilat_py import models as tapsilat_models
 from tapsilat_py.models import (
     BasketItemDTO,
     BasketItemPayerDTO,
@@ -408,9 +408,349 @@ def list_webhooks():
                 try:
                     content = json.load(fh)
                     logs.append({"filename": os.path.basename(f), "content": content})
-                except:
+                except Exception:
                     pass
         return jsonify(logs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# --- MISSING SDK ENDPOINTS ---
+
+
+@app.route("/api/order/accounting", methods=["POST"])
+def order_accounting():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrderAccountingRequest(**data)
+        response = client.order_accounting(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/postauth", methods=["POST"])
+def order_postauth():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrderPostAuthRequest(**data)
+        response = client.order_postauth(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/system/order-statuses", methods=["GET"])
+def system_order_statuses():
+    try:
+        client = get_api_client()
+        response = client.get_system_order_statuses()
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/conversation/<conversation_id>", methods=["GET"])
+def get_order_by_conversation(conversation_id):
+    try:
+        client = get_api_client()
+        response = client.get_order_by_conversation_id(conversation_id)
+        return jsonify(response if isinstance(response, dict) else response.to_dict())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/refund-all", methods=["POST"])
+def refund_all_order():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.RefundAllOrderDTO(**data)
+        response = client.refund_all_order(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/payment-details", methods=["POST"])
+def get_order_payment_details_post():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrderPaymentDetailDTO(**data)
+        response = client.get_order_payment_details(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/<reference_id>/payment-details", methods=["GET"])
+def get_order_payment_details_get(reference_id):
+    try:
+        client = get_api_client()
+        response = client.get_order_payment_details_by_id(reference_id)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/term/update", methods=["PATCH"])
+def update_order_term():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrderPaymentTermUpdateDTO(**data)
+        response = client.update_order_term(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/term/<term_ref_id>", methods=["GET"])
+def get_order_term(term_ref_id):
+    try:
+        client = get_api_client()
+        response = client.get_order_term(term_ref_id)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/term/refund", methods=["POST"])
+def refund_order_term():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrderTermRefundRequest(**data)
+        response = client.refund_order_term(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/terminate", methods=["POST"])
+def terminate_order():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.TerminateRequest(**data)
+        response = client.terminate_order(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/callback", methods=["POST"])
+def manual_callback():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrderManualCallbackDTO(**data)
+        response = client.manual_callback(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/related", methods=["PATCH"])
+def related_update():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrderRelatedReferenceDTO(**data)
+        response = client.related_update(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/order/basket-item", methods=["POST", "DELETE", "PATCH"])
+def handle_basket_item():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        if request.method == "POST":
+            if "basket_item" in data and isinstance(data["basket_item"], dict):
+                data["basket_item"] = tapsilat_models.BasketItemDTO(
+                    **data["basket_item"]
+                )
+            req = tapsilat_models.AddBasketItemRequest(**data)
+            response = client.add_basket_item(req)
+        elif request.method == "DELETE":
+            req = tapsilat_models.RemoveBasketItemRequest(**data)
+            response = client.remove_basket_item(req)
+        elif request.method == "PATCH":
+            if "basket_item" in data and isinstance(data["basket_item"], dict):
+                data["basket_item"] = tapsilat_models.BasketItemDTO(
+                    **data["basket_item"]
+                )
+            req = tapsilat_models.UpdateBasketItemRequest(**data)
+            response = client.update_basket_item(req)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/callback", methods=["GET"])
+def get_org_callback():
+    try:
+        client = get_api_client()
+        return jsonify(client.get_organization_callback())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/callback", methods=["PATCH"])
+def update_org_callback():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.CallbackURLDTO(**data)
+        return jsonify(client.update_organization_callback(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/business", methods=["POST"])
+def create_org_business():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrgCreateBusinessRequest(**data)
+        return jsonify(client.create_organization_business(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/currencies", methods=["GET"])
+def get_org_currencies():
+    try:
+        client = get_api_client()
+        return jsonify(client.get_organization_currencies())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/limit/user", methods=["GET", "POST"])
+def org_limit_user():
+    try:
+        client = get_api_client()
+        if request.method == "GET":
+            data = request.args.to_dict()
+            req = tapsilat_models.GetUserLimitRequest(**data)
+            return jsonify(client.get_organization_limit_user(req))
+        else:
+            data = request.get_json() or {}
+            req = tapsilat_models.SetLimitUserRequest(**data)
+            return jsonify(client.set_organization_limit_user(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/limits", methods=["GET"])
+def get_org_limits():
+    try:
+        client = get_api_client()
+        return jsonify(client.get_organization_limits())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/vpos", methods=["POST"])
+def list_org_vpos():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.GetVposRequest(**data)
+        return jsonify(client.list_organization_vpos(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/meta/<name>", methods=["GET"])
+def get_org_meta(name):
+    try:
+        client = get_api_client()
+        return jsonify(client.get_organization_meta(name))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/scopes", methods=["GET"])
+def get_org_scopes():
+    try:
+        client = get_api_client()
+        return jsonify(client.get_organization_scopes())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/suborganizations", methods=["GET"])
+def get_org_suborganizations():
+    try:
+        client = get_api_client()
+        page = request.args.get("page", 1)
+        per_page = request.args.get("per_page", 10)
+        return jsonify(
+            client.get_organization_suborganizations(int(page), int(per_page))
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/user", methods=["POST"])
+def create_org_user():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrgCreateUserReq(**data)
+        return jsonify(client.create_organization_user(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/user/verify", methods=["POST"])
+def verify_org_user():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrgUserVerifyReq(**data)
+        return jsonify(client.verify_organization_user(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/organization/user/verify-mobile", methods=["POST"])
+def verify_org_user_mobile():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.OrgUserMobileVerifyReq(**data)
+        return jsonify(client.verify_organization_user_mobile(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/subscription", methods=["POST"])
+def get_subscription():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.SubscriptionGetRequest(**data)
+        return jsonify(client.get_subscription(req))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/subscription/redirect", methods=["POST"])
+def redirect_subscription():
+    try:
+        data = request.get_json()
+        client = get_api_client()
+        req = tapsilat_models.SubscriptionRedirectRequest(**data)
+        return jsonify(client.redirect_subscription(req))
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
