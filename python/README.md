@@ -38,32 +38,47 @@ This application uses the [tapsilat-py](https://github.com/tapsilat/tapsilat-py)
 
 ## Installation
 
-### 1. Environment File
+### Option 1: Using Docker (Recommended)
 
-Copy `.env.example` to `.env` and enter your API key:
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/tapsilat/examples.git
+    cd examples/python
+    ```
 
-```bash
-cp .env.example .env
-```
+2.  Configure Environment:
+    ```bash
+    cp .env.example .env
+    # Edit .env and set TAPSILAT_API_KEY
+    ```
 
-Edit the `.env` file:
-```env
-TAPSILAT_API_KEY=your_actual_api_key_here
-```
+3.  Run with Docker:
+    ```bash
+    docker compose up --build
+    ```
+    Access at http://localhost:5005.
 
-### 2. Run with Docker
+### Option 2: Manual Installation
 
-```bash
-# Build and start the Docker container
-docker-compose up -d
+1.  Create Virtual Environment:
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
 
-# Install dependencies on first setup
-docker-compose exec app pip install -r requirements.txt
-```
+2.  Install Dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3.  Run Application:
+    ```bash
+    python3 app.py
+    ```
 
 ### 3. Access the Application
 
-Open your browser and navigate to [http://localhost:5000](http://localhost:5000).
+Open your browser and navigate to [http://localhost:5005](http://localhost:5005).
 
 ## Usage
 

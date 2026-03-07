@@ -177,9 +177,22 @@ def create_order():
             order_dto.payment_methods = True  # Enabling all
 
         response = client.create_order(order_dto)
+        response_dict = (
+            response.to_dict() if hasattr(response, "to_dict") else dict(response)
+        )
+
+        # Manually fetch the checkout URL and add it to the response JSON
+        ref_id = getattr(response, "reference_id", response_dict.get("reference_id"))
+        if ref_id:
+            try:
+                checkout_url = client.get_checkout_url(ref_id)
+                if checkout_url:
+                    response_dict["checkout_url"] = checkout_url
+            except Exception:
+                pass
 
         # Serialize response
-        return jsonify(response)
+        return jsonify(response_dict)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400

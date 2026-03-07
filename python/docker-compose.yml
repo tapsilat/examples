@@ -2,9 +2,9 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: .docker/Dockerfile
     ports:
-      - '5000:5000'
+      - "5000:5000"
     volumes:
       - .:/app
     environment:
