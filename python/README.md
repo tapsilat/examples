@@ -8,12 +8,14 @@ This project is a **complete example application** for the [tapsilat-py](https:/
 
 This application uses the [tapsilat-py](https://github.com/tapsilat/tapsilat-py) library. With Tapsilat Python SDK, you can easily perform the following operations:
 
-- Order creation
-- Checkout URL retrieval
+- Order creation, checkout, refund, and cancellation
 - Basket item management
 - Customer and address information processing
-- Installment options
-- Payment status tracking
+- Installment and payment options management
+- Subscription creation and tracking
+- Organization, sub-organization, and user management
+- Payment term and system metadata queries
+- Payment status tracking and webhooks
 
 ## Technology Stack
 
@@ -26,14 +28,11 @@ This application uses the [tapsilat-py](https://github.com/tapsilat/tapsilat-py)
 ## Features
 
 - **Complete Tapsilat Python SDK** integration example
-- **Flask** web framework implementation
-- **Bootstrap 5** responsive design
-- **Product catalog** and cart management
-- **Basket items** with detailed order content
-- **Address forms** (billing and shipping)
-- **Installment** options
+- **Flask** web framework implementation exposing all SDK functionalities
+- **Bootstrap 5** responsive design for cart and checkout simulator
+- **Comprehensive API routes** covering Orders, Subscriptions, Organization, Terms, and System queries
 - **Docker** support for easy setup
-- **Automatic checkout** redirection
+- **Automatic checkout** redirection and webhooks logging
 - **API error handling** and user-friendly error messages
 
 ## Installation
@@ -49,14 +48,14 @@ This application uses the [tapsilat-py](https://github.com/tapsilat/tapsilat-py)
 2.  Configure Environment:
     ```bash
     cp .env.example .env
-    # Edit .env and set TAPSILAT_API_KEY
+    # Edit .env and set TAPSILAT_API_KEY and TAPSILAT_BASE_URL
     ```
 
 3.  Run with Docker:
     ```bash
     docker compose up --build
     ```
-    Access at http://localhost:5005.
+    Access at [http://localhost:5000](http://localhost:5000) (Docker uses port 5000 by default).
 
 ### Option 2: Manual Installation
 
@@ -78,181 +77,90 @@ This application uses the [tapsilat-py](https://github.com/tapsilat/tapsilat-py)
 
 ### 3. Access the Application
 
-Open your browser and navigate to [http://localhost:5005](http://localhost:5005).
+Open your browser and navigate to [http://localhost:5001](http://localhost:5001) (Manual execution defaults to port 5001).
 
 ## Usage
 
-### 1. Product Cart
+### 1. E-Commerce Flow
 - View products on the main page
 - Add products to cart using "Add to Cart" button
-- Change product quantities and remove items in the cart
-- Continue to address information page with "Continue" button
+- Complete the order with Address and Customer information
+- Redirect to Tapsilat Checkout page automatically
 
-### 2. Address Information
-- Fill in billing address information (required)
-- Use "Same as billing address" option for shipping address
-- Fill in all required fields
-- Complete the order with "Complete Order" button
-
-### 3. Payment
-- System automatically creates order via Tapsilat API
-- When order is successfully created, you'll be redirected to Tapsilat checkout page
+### 2. Full API Exploration
+The application exposes comprehensive routes under `/api/...` matching the SDK's functionalities:
+- **Order:** `/api/order/create`, `/api/order/list`, `/api/order/refund`, `/api/order/cancel`, etc.
+- **Subscription:** `/api/subscription/create`, `/api/subscription/list`, etc.
+- **Organization:** `/api/organization/settings`, `/api/organization/limits`, `/api/organization/suborganizations`, etc.
+- **Term:** `/api/term/create`, `/api/term/refund`, etc.
+- **System:** `/api/system/order-statuses`, `/api/system/error-codes`, etc.
+- **Webhooks:** `/api/webhooks/logs` to view received webhooks.
 
 ## Project Structure
 
-```
+```text
 python/
-├── templates/
-│   └── index.html         # Main page (cart interface)
+├── .docker/
+│   └── Dockerfile         # Docker image definition
 ├── src/
 │   ├── __init__.py
 │   └── utils.py           # Utility functions
+├── static/                # Static assets (CSS, JS)
+├── templates/
+│   └── index.html         # Main page (cart interface)
+├── webhooks/              # Directory where webhook logs are saved
 ├── app.py                 # Flask application (Tapsilat integration)
 ├── requirements.txt       # Python dependencies
 ├── docker-compose.yml     # Docker configuration
-├── Dockerfile            # Docker image definition
-├── dev.sh                # Development script
-├── .env.example          # Environment example file
+├── .env.example           # Environment example file
 └── README.md
 ```
 
-## API Endpoints
+## API Endpoints (Examples)
 
-### POST /api
-Order creation endpoint.
-
-**Request Body:**
+### Order Creation (POST /api/order/create)
 ```json
 {
-  "cart": [
+  "amount": 299.99,
+  "currency": "TRY",
+  "buyer": {
+    "name": "Ahmet",
+    "surname": "Yılmaz",
+    "email": "ahmet@example.com",
+    "gsm_number": "+905551234567"
+  },
+  "basket_items": [
     {
-      "id": "product_1",
-      "name": "Wireless Bluetooth Headphones",
+      "id": "1",
+      "name": "Headphones",
       "price": 299.99,
-      "category": "Electronics",
       "quantity": 1
     }
-  ],
-  "billing": {
-    "contact_name": "John Doe",
-    "email": "john@example.com",
-    "contact_phone": "05551234567",
-    "address": "123 Main Street",
-    "city": "Istanbul",
-    "zip_code": "34000",
-    "vat_number": "12345678901"
-  },
-  "same_address": true,
-  "shipping": {
-    "contact_name": "John Doe",
-    "address": "123 Main Street",
-    "city": "Istanbul",
-    "zip_code": "34000"
-  },
-  "installment": 1
+  ]
 }
 ```
 
-**Response:**
+### Subscription Creation (POST /api/subscription/create)
 ```json
 {
-  "success": true,
-  "message": "Order created successfully",
-  "order_id": "order-uuid-123",
-  "reference_id": "ref-uuid-456",
-  "checkout_url": "https://checkout.tapsilat.dev?reference_id=ref-uuid-456"
-}
-```
-
-## Development Script Usage
-
-## API Endpoints
-
-### POST /api
-Sipariş oluşturma endpoint'i.
-
-**Request Body:**
-```json
-{
-  "cart": [
-    {
-      "id": 1,
-      "name": "Ürün Adı",
-      "price": 299.99,
-      "quantity": 2
-    }
-  ],
-  "billing": {
-    "contact_name": "Ahmet Yılmaz",
-    "email": "ahmet@example.com",
-    "contact_phone": "05551234567",
-    "vat_number": "12345678901",
-    "address": "Örnek Mahallesi, Örnek Sokak No:1",
-    "city": "İstanbul",
-    "zip_code": "34000"
-  },
-  "same_address": true,
-  "shipping": {
-    "contact_name": "Ahmet Yılmaz",
-    "contact_phone": "05551234567",
-    "address": "Örnek Mahallesi, Örnek Sokak No:1",
-    "city": "İstanbul",
-    "zip_code": "34000"
-  },
-  "installment": 1
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Sipariş başarıyla oluşturuldu",
-  "data": {
-    "conversation_id": "CONV_1234567890_abcd1234",
-    "checkout_url": "https://checkout.tapsilat.dev/...",
-    "total": 599.98
+  "amount": 99.99,
+  "currency": "TRY",
+  "title": "Premium Membership",
+  "period": 1,
+  "user": {
+    "first_name": "Ahmet",
+    "last_name": "Yılmaz",
+    "email": "ahmet@example.com"
   }
 }
-```
-
-## Development Script Kullanımı
-
-You can easily manage the development environment using the `dev.sh` script located in the project root:
-
-```bash
-# Display all commands
-./dev.sh help
-
-# Build Docker image
-./dev.sh build
-
-# Start container
-./dev.sh start
-
-# Stop container
-./dev.sh stop
-
-# Connect to container with shell
-./dev.sh shell
-
-# View logs
-./dev.sh logs
-
-# Install dependencies
-./dev.sh install
-
-# Check container status
-./dev.sh status
 ```
 
 ## Development Notes
 
 - Flask development mode is active, automatic restart on code changes
 - Uses the latest version of Tapsilat SDK
-- Error logging written to `/logs/error.log`
-- Cart data stored in localStorage
-- Responsive design is mobile-friendly
+- Incoming Webhooks are stored as JSON files under `webhooks/` directory.
+- Cart data and API inputs can be directly configured.
 
 ## Error Handling
 
@@ -260,14 +168,13 @@ The application includes comprehensive error handling:
 - API validation errors
 - Tapsilat SDK errors
 - Network errors
-- User-friendly error messages
+- Appropriate HTTP 400 responses on failures
 
 ## Security
 
 - API key management with environment variables
-- Input validation and sanitization
-- CORS headers
-- Error logging
+- Webhook signature validation (SDK side)
+- Request header based API credentials (`X-Api-Key` and `X-Api-Url`)
 
 ## Support
 
