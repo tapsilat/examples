@@ -93,27 +93,25 @@ public class ApiController : ControllerBase
                     City = shipping.City,
                     Country = "Turkey",
                     Address = shipping.Address,
-                    ZipCode = shipping.ZipCode,
-                    ContactPhone = shipping.ContactPhone
+                    ZipCode = shipping.ZipCode
                 },
                 ConversationId = conversationId,
                 Metadata = metadata,
                 PaymentSuccessUrl = $"{baseUrl}/payment/success",
                 PaymentFailureUrl = $"{baseUrl}/payment/failure",
-                Installment = request.Installment,
                 ThreeDForce = request.ThreeDForce,
                 PaymentMethods = request.PaymentMethods,
                 PaymentOptions = request.PaymentOptions,
                 EnabledInstallments = request.EnabledInstallments
             };
 
-            var response = await _tapsilatClient.Orders.CreateAsync(orderRequest);
+            var response = await _tapsilatClient.Payment.CreateOrderAsync(orderRequest);
 
             string checkoutUrl = null;
             if (!string.IsNullOrEmpty(response.ReferenceId))
             {
                 try {
-                   checkoutUrl = await _tapsilatClient.Orders.GetCheckoutUrlAsync(response.ReferenceId);
+                   checkoutUrl = await _tapsilatClient.Payment.GetCheckoutUrlAsync(response.ReferenceId);
                 } catch {}
             }
 
@@ -138,7 +136,7 @@ public class ApiController : ControllerBase
     {
         try
         {
-            var response = await _tapsilatClient.Orders.GetListAsync(page, per_page, null, start_date, end_date);
+            var response = await _tapsilatClient.Payment.GetOrdersAsync(page, per_page, null, start_date, end_date);
             
             var rows = response.Rows.Select(o => new {
                 reference_id = o.ReferenceId,
@@ -163,7 +161,7 @@ public class ApiController : ControllerBase
     {
         try
         {
-            var order = await _tapsilatClient.Orders.GetAsync(referenceId);
+            var order = await _tapsilatClient.Payment.GetOrderAsync(referenceId);
             return Ok(new { 
                 amount = order.Amount,
                 currency = order.Currency,
@@ -183,7 +181,7 @@ public class ApiController : ControllerBase
     public async Task<IActionResult> GetOrderTransactions(string referenceId)
     {
          try {
-             var transactions = await _tapsilatClient.Orders.GetTransactionsAsync(referenceId);
+             var transactions = await _tapsilatClient.Payment.GetOrderTransactionsAsync(referenceId);
              return Ok(transactions);
          } catch {
              return Ok(new object[] {});
@@ -230,7 +228,7 @@ public class ApiController : ControllerBase
             if(!string.IsNullOrEmpty(response.OrderReferenceId))
             {
                  try {
-                    checkoutUrl = await _tapsilatClient.Orders.GetCheckoutUrlAsync(response.OrderReferenceId);
+                    checkoutUrl = await _tapsilatClient.Payment.GetCheckoutUrlAsync(response.OrderReferenceId);
                  } catch {}
             }
 
@@ -284,7 +282,7 @@ public class ApiController : ControllerBase
     {
          try
          {
-             await _tapsilatClient.Orders.CancelAsync(req.ReferenceId);
+             await _tapsilatClient.Payment.CancelOrderAsync(req.ReferenceId);
              return Ok(new { success = true });
          }
          catch (Exception ex)
@@ -298,7 +296,7 @@ public class ApiController : ControllerBase
     {
          try
          {
-             await _tapsilatClient.Orders.RefundAsync(new RefundOrderRequest { ReferenceId = req.ReferenceId, Amount = string.IsNullOrEmpty(req.Amount) ? 0 : decimal.Parse(req.Amount) });
+             await _tapsilatClient.Payment.RefundOrderAsync(new RefundOrderRequest { ReferenceId = req.ReferenceId, Amount = string.IsNullOrEmpty(req.Amount) ? 0 : decimal.Parse(req.Amount) });
              return Ok(new { success = true });
          }
          catch (Exception ex)
@@ -330,7 +328,7 @@ public class ApiController : ControllerBase
     {
         try
         {
-            var response = await _tapsilatClient.Orders.GetSubmerchantsAsync(page, per_page);
+            var response = await _tapsilatClient.Payment.GetOrderSubmerchantsAsync(page, per_page);
             return Ok(response);
         }
         catch (Exception ex)
@@ -360,13 +358,13 @@ public class ApiController : ControllerBase
         {
             var request = new CreateOrderTermRequest
             {
-                ReferenceId = req.OrderReferenceId,
+                OrderId = req.OrderReferenceId,
+                TermReferenceId = req.OrderReferenceId,
                 Amount = req.Amount,
                 DueDate = req.DueDate, 
                 Required = req.Required
-                // Data = req.Data // Optional
             };
-            var response = await _tapsilatClient.Orders.CreateOrderTermAsync(request);
+            var response = await _tapsilatClient.Payment.CreateOrderTermAsync(request);
             return Ok(response);
         }
         catch (Exception ex)
@@ -380,12 +378,117 @@ public class ApiController : ControllerBase
     {
         try
         {
-            await _tapsilatClient.Orders.DeleteOrderTermAsync(req.TermReferenceId);
+            await _tapsilatClient.Payment.DeleteOrderTermAsync(req.TermReferenceId);
             return Ok(new { success = true });
         }
         catch (Exception ex)
         {
              return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    // --- ELEMENTS SESSIONS ---
+
+    [HttpPost("api/elements/sessions")]
+    public async Task<IActionResult> CreateElementsSession([FromBody] CreateElementsSessionRequest req)
+    {
+        try
+        {
+            var session = await _tapsilatClient.Elements.CreateElementsSessionAsync(req);
+            return Ok(session);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("api/elements/sessions/{id}")]
+    public async Task<IActionResult> GetElementsSession(string id)
+    {
+        try
+        {
+            var session = await _tapsilatClient.Elements.GetElementsSessionAsync(id);
+            return Ok(session);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("api/elements/sessions/{id}/cancel")]
+    public async Task<IActionResult> CancelElementsSession(string id)
+    {
+        try
+        {
+            var session = await _tapsilatClient.Elements.CancelElementsSessionAsync(id);
+            return Ok(session);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    // --- ORDER ITEM PAYMENT (OIP) ---
+
+    [HttpPost("api/order/oip")]
+    public async Task<IActionResult> AddOrderOip([FromBody] OrderOipRequest req)
+    {
+        try
+        {
+            var result = await _tapsilatClient.Payment.AddOrderOipAsync(req);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    // --- WEBHOOK VERIFICATION ---
+
+    [HttpPost("api/webhook/verify")]
+    public async Task<IActionResult> VerifyWebhook()
+    {
+        try
+        {
+            var secret = Environment.GetEnvironmentVariable("TAPSILAT_WEBHOOK_SECRET");
+            if (string.IsNullOrEmpty(secret))
+            {
+                return BadRequest(new { error = "TAPSILAT_WEBHOOK_SECRET is not configured" });
+            }
+
+            var signature = Request.Headers["Tapsilat-Signature"].FirstOrDefault()
+                ?? Request.Headers["X-Tapsilat-Signature"].FirstOrDefault()
+                ?? string.Empty;
+
+            using var reader = new StreamReader(Request.Body);
+            var payload = await reader.ReadToEndAsync();
+
+            var isValid = TapsilatClient.VerifyWebhook(payload, signature, secret);
+            if (!isValid)
+            {
+                return Unauthorized(new { valid = false, error = "Invalid webhook signature" });
+            }
+
+            var webhookEvent = WebhookEvent.Parse(payload);
+            return Ok(new
+            {
+                valid = true,
+                reference_id = webhookEvent.ReferenceId,
+                conversation_id = webhookEvent.ConversationId,
+                status = webhookEvent.Status,
+                status_code = webhookEvent.StatusCode,
+                is_paid = webhookEvent.IsPaid,
+                is_failed = webhookEvent.IsFailed,
+                is_refunded = webhookEvent.IsRefunded
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
         }
     }
 

@@ -1,22 +1,30 @@
-# Build results
+# Build Results
 [Bb]in/
 [Oo]bj/
+publish/
 
-# Visual Studio 2015/2017 cache/options directory
+# Environment & Secrets
+.env
+.env.local
+!.env.example
+
+# Runtime & Callbacks
+webhooks/
+logs/
+*.log
+
+# Visual Studio & Rider
 .vs/
-.vscode/
-
-# User-specific files
+.vscode/*
+!.vscode/extensions.json
+.idea/
 *.rsuser
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
 
-# Environment Files
-.env
-
-# MacOS
+# Operating System Files
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -28,10 +36,3 @@
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
-
-# Logs
-logs/
-*.log
-
-# Rider
-.idea/

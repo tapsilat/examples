@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <PackageReference Include="Tapsilat.Net" Version="2025.12.26.2" />
+    <PackageReference Include="Tapsilat.Net" Version="2026.10.26" />
   </ItemGroup>
 
   <ItemGroup>
