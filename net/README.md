@@ -3,9 +3,11 @@
 This project demonstrates the usage of the Tapsilat .NET SDK in an ASP.NET Core MVC application. It features a comprehensive Dashboard UI mirroring the functionality of the Go and Rust examples, including:
 
 - **Order Management**: Create, list, details, cancel, and refund orders.
+- **Elements Sessions**: Create, retrieve, and cancel native mobile SDK card-entry sessions.
+- **Order Item Payment (OIP)**: Record external item payments taken outside checkout (`POST /order/oip`).
 - **Subscriptions**: Create, list, and cancel subscriptions.
 - **Payment Terms**: Manage payment terms.
-- **Webhook Monitor**: View incoming webhooks in real-time.
+- **Webhook Monitor & Signature Verifier**: View incoming callbacks and verify `Tapsilat-Signature` using `TapsilatClient.VerifyWebhook()`.
 
 ## Prerequisites
 
@@ -15,13 +17,16 @@ This project demonstrates the usage of the Tapsilat .NET SDK in an ASP.NET Core 
 
 ## Configuration
 
-Set your API key in the `.env` file or environment variables.
+Set your API key and webhook secret in the `.env` file or environment variables.
 
 Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
-Edit `.env` and set `TAPSILAT_API_KEY`.
+Edit `.env` and set:
+- `TAPSILAT_API_KEY`: Your merchant secret API key.
+- `TAPSILAT_WEBHOOK_SECRET`: Your webhook signing secret.
+- `TAPSILAT_BASE_URL`: Optional API endpoint override.
 
 ## Running with Docker (Recommended)
 
