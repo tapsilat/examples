@@ -37,19 +37,19 @@ You can run the entire application using Docker Compose without installing Java 
 
     The dashboard will be available at: http://localhost:8080
 
-### Option 2: Manual Manual Installation
+### Option 2: Manual Installation
 
 1.  Build the project:
     ```bash
-    ./mvnw clean install
+    mvn clean package -DskipTests
     ```
 
 2.  Configure Environment:
-    Ensure .env file exists with your TAPSILAT_API_KEY.
+    Ensure `.env` file exists with your `TAPSILAT_API_KEY` and `TAPSILAT_WEBHOOK_SECRET`.
 
 3.  Run Application:
     ```bash
-    ./mvnw spring-boot:run
+    mvn spring-boot:run
     ```
     Access at http://localhost:8080.
 
@@ -226,6 +226,46 @@ Cancel an active subscription.
 SubscriptionCancelRequest req = new SubscriptionCancelRequest();
 req.setReferenceId("SUB_REF_123");
 client.subscriptions().cancel(req);
+```
+
+### Elements Sessions (Mobile Card Sheets)
+
+Create and manage sessions for native mobile card sheets:
+
+```java
+// Create a session
+ElementsSessionCreateRequest req = new ElementsSessionCreateRequest("pay");
+req.setOrderReferenceId("ORD_123456");
+req.setMode(1);
+req.setSaveCard(true);
+
+ElementsSessionWithSecret session = client.elements().createSession(req);
+// Pass session.getClientSecret() to mobile client (do not log or persist)
+
+// Query status
+ElementsSession current = client.elements().getSession(session.getId());
+
+// Cancel session
+ElementsSession cancelled = client.elements().cancelSession(session.getId());
+```
+
+### Order Item Payment (OIP)
+
+Record payments taken outside the hosted checkout:
+
+```java
+AddOrderOipRequest req = new AddOrderOipRequest();
+req.setOrderId("ORD_123456");
+req.setUrl("https://callback.example.com");
+Map<String, Object> resp = client.orders().addOip(req);
+```
+
+### Webhook Signature Verification
+
+Verify HMAC signatures from incoming `Tapsilat-Signature` callback headers:
+
+```java
+boolean isValid = TapsilatClient.verifyWebhook(rawPayload, signatureHeader, webhookSecret);
 ```
 
 ### Organization
