@@ -23,10 +23,12 @@ You can run the entire application using Docker Compose without installing Go lo
     ```
 
 2.  Configure Environment:
-    Create a .env file and add your API key:
+    Create a .env file and add your credentials:
     ```bash
     cp .env.example .env
-    # Edit .env and set TAPSILAT_API_KEY=your_key_here
+    # Edit .env and set:
+    # TAPSILAT_API_KEY=your_key_here
+    # TAPSILAT_WEBHOOK_SECRET=your_webhook_secret_here
     ```
 
 3.  Run with Docker:
@@ -284,7 +286,7 @@ Cancel an active subscription.
 
 ```go
 err := apiClient.CancelSubscription(context.Background(), tapsilat.SubscriptionCancelRequest{
-    SubscriptionID: "SUB_REF_123",
+    ReferenceID: "SUB_REF_123",
 })
 ```
 
@@ -296,6 +298,55 @@ resp, err := apiClient.RedirectSubscription(context.Background(), tapsilat.Subsc
     SubscriptionID: "SUB_REF_123",
     SuccessURL:     "https://new-url.com/success",
 })
+```
+
+### Elements Sessions (Mobile SDK Card Sheets)
+
+Create and manage sessions for native mobile card sheets (iOS/Android):
+
+```go
+// Create a session for paying an order
+session, err := apiClient.CreateElementsSession(context.Background(), tapsilat.ElementsSessionCreateRequest{
+    Purpose:          "pay", // or "tokenize" to save card only
+    OrderReferenceID: "ORD_123456",
+    Mode:             1, // 1 = 3DSecure
+    SaveCard:         true,
+})
+// Pass session.ClientSecret to your mobile client (do not store or log)
+
+// Retrieve authoritative session outcome
+status, err := apiClient.GetElementsSession(context.Background(), session.ID)
+
+// Cancel an active session
+cancelled, err := apiClient.CancelElementsSession(context.Background(), session.ID)
+```
+
+### Order Item Payment (OIP)
+
+Record payments taken outside the hosted checkout:
+
+```go
+resp, err := apiClient.AddOrderOIP(context.Background(), &tapsilat.OrderOIPDTO{
+    OrderID:      "ORD_123456",
+    BasketItemID: "item_1",
+    Amount:       50.00,
+    Type:         1, // 1 = VPOS, 2 = Wire Transfer, 3 = Wallet
+})
+```
+
+### Webhook Signature Verification
+
+Verify `Tapsilat-Signature` HMAC headers from webhook callbacks:
+
+```go
+// Verify incoming signature
+valid := tapsilat.VerifyWebhookSignature(rawPayload, signatureHeader, webhookSecret)
+
+// Parse typed webhook event
+event, err := tapsilat.ParseWebhookEvent(rawPayload)
+if err == nil {
+    log.Printf("Received event: %s for reference %s", event.Event, event.Data.ReferenceID)
+}
 ```
 
 ### Organization
