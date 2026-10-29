@@ -9,13 +9,15 @@ This project is a **complete example application** for the [tapsilat-py](https:/
 This application uses the [tapsilat-py](https://github.com/tapsilat/tapsilat-py) library. With Tapsilat Python SDK, you can easily perform the following operations:
 
 - Order creation, checkout, refund, and cancellation
+- Elements sessions (create, get, cancel) for native mobile SDK card sheets
+- External Order Item Payment (OIP) recording outside checkout
 - Basket item management
 - Customer and address information processing
 - Installment and payment options management
 - Subscription creation and tracking
 - Organization, sub-organization, and user management
 - Payment term and system metadata queries
-- Payment status tracking and webhooks
+- Payment status tracking and webhook signature verification
 
 ## Technology Stack
 
@@ -89,12 +91,13 @@ Open your browser and navigate to [http://localhost:5001](http://localhost:5001)
 
 ### 2. Full API Exploration
 The application exposes comprehensive routes under `/api/...` matching the SDK's functionalities:
-- **Order:** `/api/order/create`, `/api/order/list`, `/api/order/refund`, `/api/order/cancel`, etc.
+- **Order:** `/api/order/create`, `/api/order/list`, `/api/order/refund`, `/api/order/cancel`, `/api/order/oip`
+- **Elements:** `/api/elements/sessions` (POST), `/api/elements/sessions/<id>` (GET), `/api/elements/sessions/<id>/cancel` (POST)
 - **Subscription:** `/api/subscription/create`, `/api/subscription/list`, etc.
 - **Organization:** `/api/organization/settings`, `/api/organization/limits`, `/api/organization/suborganizations`, etc.
 - **Term:** `/api/term/create`, `/api/term/refund`, etc.
 - **System:** `/api/system/order-statuses`, `/api/system/error-codes`, etc.
-- **Webhooks:** `/api/webhooks/logs` to view received webhooks.
+- **Webhooks:** `/api/webhooks/logs` and `/api/webhook/verify` (SDK HMAC signature verifier)
 
 ## Project Structure
 
