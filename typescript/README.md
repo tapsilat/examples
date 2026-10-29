@@ -1,36 +1,20 @@
-# Tapsilat API TypeScript Console App
+# Tapsilat API TypeScript & Express Dashboard Example
 
-This example project demonstrates the capabilities of the [Tapsilat TypeScript SDK](https://github.com/tapsilat/tapsilat-js) in a Node.js console application. It walks through a complete flow of order management, payment terms, and subscriptions using mock data against the Tapsilat API.
+This example project demonstrates the capabilities of the [@tapsilat/tapsilat-js](https://github.com/tapsilat/tapsilat-js) SDK in an Express web application dashboard and console runner. It covers order management, Elements sessions for mobile card sheets, order item payments (OIP), payment terms, subscriptions, and webhook signature verification.
 
 ## Features Covered
 
-The application executes the following operations sequentially:
+1.  **Web Dashboard (Express & HTML)**
+    *   **New Order**: Create orders with basket items, buyer details, and retrieve checkout URLs.
+    *   **Order Management**: List orders, inspect order details, and retrieve transactions.
+    *   **Elements Sessions**: Create, retrieve, and cancel mobile SDK card sessions (POST `/elements/sessions`).
+    *   **Order Item Payments (OIP)**: Record order item payments taken outside the checkout (POST `/order/oip`).
+    *   **Payment Terms**: Create, update, view, and refund order payment terms.
+    *   **Subscriptions**: Create and cancel recurring subscriptions.
+    *   **Webhook Monitor & Verifier**: Receive webhooks and verify `Tapsilat-Signature` using `sdk.verifyWebhook()` and `WebhookEvent`.
 
-1.  **System Health & Info**
-    *   API Health Check
-    *   Retrieve System Order Statuses
-
-2.  **Order Management**
-    *   Create a new Order with detailed buyer and basket info
-    *   Retrieve Checkout URL
-    *   Get Order Details
-    *   Check Order Status
-    *   Order Accounting & Post-Authorization (Mock)
-    *   Cancel Order
-    *   List Orders (Pagination)
-
-3.  **Payment Terms (Installments)**
-    *   Create a Payment Term for an Order
-    *   Update Payment Term
-    *   Get Payment Term Details
-    *   Delete Payment Term
-
-4.  **Subscription Management**
-    *   Create a new Subscription
-    *   Get Subscription Details
-    *   Get Subscription Payment Link
-    *   List Subscriptions
-    *   Cancel Subscription
+2.  **Console Runner (`src/index.ts`)**
+    *   Sequential execution of system health, orders, terms, and subscriptions.
 
 ## Prerequisites
 
@@ -39,7 +23,7 @@ The application executes the following operations sequentially:
 
 ## Installation
 
-1.  Clone the repository and navigate to the example directory:
+1.  Navigate to the example directory:
     ```bash
     cd examples/typescript
     ```
@@ -51,22 +35,18 @@ The application executes the following operations sequentially:
 
 ## Usage
 
-Run the console application:
+### Run the Web Dashboard
 
 ```bash
 npm start
 ```
+The dashboard will be available at `http://localhost:8080`.
 
-You will see colored output in the terminal indicating the progress of each step, the data sent/received, and the success or failure status of each API call.
+### Configuration
 
-## Configuration
-
-The SDK configuration is defined at the top of `src/index.ts`. You can modify the `config` object to test with different credentials or environments:
-
-```typescript
-const config: TapsilatConfig = {
-    bearerToken: 'your_api_token',
-    baseURL: 'https://panel.tapsilat.dev/api/v1', 
-    debug: true
-};
+You can provide environment variables:
+```bash
+export TAPSILAT_API_KEY="your_api_key_here"
+export TAPSILAT_WEBHOOK_SECRET="your_webhook_secret_here"
+export PORT=8080
 ```

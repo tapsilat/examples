@@ -17,13 +17,17 @@ import {
   OrderAccountingRequest,
   OrderPostAuthRequest,
   OrderTerminateRequest,
+  ElementsSessionCreateRequest,
+  OrderOIPDTO,
+  WebhookEvent,
 } from "@tapsilat/tapsilat-js";
 
 // -- CONFIGURATION --
 const config = {
   bearerToken:
+    process.env.TAPSILAT_API_KEY ||
     "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6IkF0YWthbkBhcGkudGFwc2lsYXRkZXYiLCJJRCI6IjQwNTZlNWQyLTc2ZTMtNGZiYS1hNmI1LThjNWVlYjdjNzliOCIsIk9yZ2FuaXphdGlvbklEIjoiMWY5NDVmZjctZDBkOS00M2U3LWI5NjItZGI4YmMzMzViYWFiIiwiT3JnYW5pemF0aW9uIjoiVGFwc2lsYXRERVYiLCJJc09yZ2FuaXphdGlvblVzZXIiOnRydWUsIklwQWRkcmVzcyI6IiIsIkFnZW50IjoiIiwiT3JnVGltZXplb25lIjoiVHVya2V5IiwiSXNBcGlVc2VyIjp0cnVlLCJpc3MiOiJ0YXBzaWxhdCIsImV4cCI6MjYxMDUzMDA1Nn0.rX1lQiUjOWSXea4XuGO1gnu9Ekw2-mCAis-1AuUAkC7p0aTAa9leFvdZJBOphrZ5LcI7SjVgLcj1XEqC9EAmxQ",
-  baseURL: "https://panel.tapsilat.dev/api/v1",
+  baseURL: process.env.TAPSILAT_BASE_URL || "https://panel.tapsilat.dev/api/v1",
   debug: true,
 };
 
@@ -33,7 +37,13 @@ const PORT = process.env.PORT || 8080;
 
 // -- MIDDLEWARE --
 app.use(cors());
-app.use(bodyParser.json());
+app.use(
+  bodyParser.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 
 // Resolve __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -83,7 +93,7 @@ app.post("/api/order", async (req, res) => {
 
     const orderRequest: OrderCreateRequest = {
       amount: basketItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 1),
         0,
       ),
       currency: data.currency,
@@ -299,7 +309,45 @@ app.get("/api/organization/settings", async (req, res) => {
   }
 });
 
-// 11. Webhooks
+// 11. Elements Sessions
+app.post("/api/elements/sessions", async (req, res) => {
+  try {
+    const session = await sdk.createElementsSession(req.body as ElementsSessionCreateRequest);
+    res.json(session);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
+app.get("/api/elements/sessions/:id", async (req, res) => {
+  try {
+    const session = await sdk.getElementsSession(req.params.id);
+    res.json(session);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
+app.post("/api/elements/sessions/:id/cancel", async (req, res) => {
+  try {
+    const session = await sdk.cancelElementsSession(req.params.id);
+    res.json(session);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
+// 12. Order Item Payment (OIP)
+app.post("/api/order/oip", async (req, res) => {
+  try {
+    const result = await sdk.addOrderOip(req.body as OrderOIPDTO);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
+// 13. Webhooks & Verification
 const webhooks: any[] = [];
 app.post("/api/webhook", (req, res) => {
   webhooks.unshift({
@@ -314,6 +362,42 @@ app.post("/api/webhook", (req, res) => {
 
 app.get("/api/webhooks", (req, res) => {
   res.json(webhooks);
+});
+
+app.post("/api/webhook/verify", async (req: any, res) => {
+  try {
+    const secret = process.env.TAPSILAT_WEBHOOK_SECRET;
+    if (!secret) {
+      return res.status(400).json({ error: "TAPSILAT_WEBHOOK_SECRET is not configured" });
+    }
+
+    const signature =
+      (req.headers["tapsilat-signature"] as string) ||
+      (req.headers["x-tapsilat-signature"] as string) ||
+      "";
+
+    const rawPayload: string =
+      req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(req.body);
+
+    const isValid = await sdk.verifyWebhook(rawPayload, signature, secret);
+    if (!isValid) {
+      return res.status(401).json({ valid: false, error: "Invalid webhook signature" });
+    }
+
+    const event = WebhookEvent.fromPayload(rawPayload);
+    return res.json({
+      valid: true,
+      reference_id: event.referenceId,
+      conversation_id: event.conversationId,
+      status: event.status,
+      status_code: event.statusCode,
+      is_paid: event.isPaid(),
+      is_failed: event.isFailed(),
+      is_refunded: event.isRefunded(),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || error });
+  }
 });
 
 // Start Server

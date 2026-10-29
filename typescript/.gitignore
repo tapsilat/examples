@@ -1,1 +1,34 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Production & Build Outputs
+dist/
+*.tsbuildinfo
+
+# Environment & Secrets
+.env
+.env.local
+!.env.example
+
+# Runtime & Callbacks
+webhooks/
+logs/
+*.log
+
+# Package Manager Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE & Editor Files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+._*
