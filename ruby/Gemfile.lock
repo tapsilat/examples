@@ -1,9 +1,11 @@
-PATH
-  remote: ../../sdks/tapsilat-ruby
+GIT
+  remote: https://github.com/tapsilat/tapsilat-ruby.git
+  revision: cb36cb75e6249ba721eb07f35d990a3d96df7a32
+  tag: v2026.04.26.1
   specs:
-    tapsilat (0.0.11)
+    tapsilat (0.0.12)
       csv (~> 3.0)
-      httparty (>= 0.21, < 0.24)
+      httparty (>= 0.21, < 0.25)
 
 GEM
   remote: https://rubygems.org/
@@ -87,7 +89,7 @@ CHECKSUMS
   ruby2_keywords (0.0.5) sha256=ffd13740c573b7301cf7a2e61fc857b2a8e3d3aff32545d6f8300d8bae10e3ef
   sinatra (4.2.1) sha256=b7aeb9b11d046b552972ade834f1f9be98b185fa8444480688e3627625377080
   sinatra-contrib (4.2.1) sha256=10d091c944d268aa910c618ea40a3c3ebe0533e6e32990d84af92235a3d26b4a
-  tapsilat (0.0.11)
+  tapsilat (0.0.12)
   tilt (2.6.1) sha256=35a99bba2adf7c1e362f5b48f9b581cce4edfba98117e34696dde6d308d84770
 
 BUNDLED WITH

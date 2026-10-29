@@ -7,5 +7,5 @@ gem 'rackup', '~> 2.2'
 gem 'dotenv', '~> 3.0'
 gem 'json', '~> 2.7'
 
-# Local tapsilat gem
-gem 'tapsilat', path: '../../sdks/tapsilat-ruby'
+# Tapsilat SDK (git repository tag v2026.04.26.1)
+gem 'tapsilat', git: 'https://github.com/tapsilat/tapsilat-ruby.git', tag: 'v2026.04.26.1'

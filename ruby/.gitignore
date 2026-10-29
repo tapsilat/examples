@@ -1,4 +1,30 @@
+# Bundler & Gems
+vendor/
+.bundle/
+*.gem
+
+# Environment & Secrets
 .env
+.env.local
+!.env.example
+
+# Runtime & Callbacks
 webhooks/
+logs/
 *.log
+tmp/
+
+# Testing & Coverage
+coverage/
+.rspec_status
+
+# IDE & Editor Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating System Files
 .DS_Store
+._*

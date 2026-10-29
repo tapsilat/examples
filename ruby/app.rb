@@ -476,6 +476,43 @@ post '/api/cancel_callback' do
   json({ status: 'received' })
 end
 
+# Webhook signature verification endpoint
+post '/api/webhook/verify' do
+  content_type :json
+
+  begin
+    secret = ENV['TAPSILAT_WEBHOOK_SECRET']
+    return json({ error: 'TAPSILAT_WEBHOOK_SECRET is not configured' }) if secret.nil? || secret.empty?
+
+    signature = request.env['HTTP_TAPSILAT_SIGNATURE']
+    return json({ error: 'Missing Tapsilat-Signature header' }) if signature.nil? || signature.empty?
+
+    payload = request.body.read
+    sig_to_verify = signature
+    if signature.include?('v1=')
+      parts = signature.split(',')
+      v1_part = parts.find { |p| p.strip.start_with?('v1=') }
+      sig_to_verify = "sha256=#{v1_part.strip[3..-1]}" if v1_part
+    elsif !signature.start_with?('sha256=')
+      sig_to_verify = "sha256=#{signature}"
+    end
+
+    valid = Tapsilat::API.verify_webhook(payload, sig_to_verify, secret)
+    res = { valid: valid }
+    if valid
+      begin
+        res[:event] = JSON.parse(payload)
+      rescue => _
+        res[:raw] = payload
+      end
+    end
+
+    json(res)
+  rescue => e
+    json({ error: e.message })
+  end
+end
+
 get '/api/webhooks' do
   content_type :json
   

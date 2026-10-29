@@ -645,14 +645,37 @@
     <!-- WEBHOOK MONITOR -->
     <div id="view-webhooks" class="tab-view">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Webhook Monitor</h2>
+        <h2>Webhook Monitor & Signature Verifier</h2>
         <button class="btn btn-secondary" onclick="fetchWebhooks()">
           <i class="fas fa-sync-alt"></i> Refresh List
         </button>
       </div>
       <p class="text-muted">
-        Webhooks are saved to `webhooks/` folder. Click refresh to list them.
+        Webhooks are saved to `webhooks/` folder. Use the tool below to test signature verification with the SDK helper.
       </p>
+
+      <!-- Webhook Signature Verification Tool -->
+      <div class="card mb-4 border-info">
+        <div class="card-header bg-info text-white">
+          <i class="fas fa-shield-alt me-1"></i> Verify Webhook Signature (SDK Helper)
+        </div>
+        <div class="card-body">
+          <form onsubmit="verifyWebhookSignature(event)">
+            <div class="mb-3">
+              <label class="form-label">Tapsilat-Signature Header</label>
+              <input type="text" class="form-control font-monospace" id="wh-signature" placeholder="sha256=... or t=...,v1=..." required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Raw Payload (JSON)</label>
+              <textarea class="form-control font-monospace" id="wh-payload" rows="4" placeholder='{"event":"order.completed","data":{"reference_id":"..."}}' required></textarea>
+            </div>
+            <button type="submit" class="btn btn-info text-white">Verify Signature & Parse Event</button>
+          </form>
+          <div id="wh-verify-result" class="mt-3 d-none">
+            <pre class="bg-light p-3 border rounded"><code id="wh-verify-json"></code></pre>
+          </div>
+        </div>
+      </div>
 
       <div class="card">
         <div class="card-header bg-dark text-white">Received Callbacks</div>
@@ -1465,6 +1488,28 @@
     function toggleWebhook(start) {
       // Deprecated but kept for button compatibility if needed, though we will replace button
       if (start) fetchWebhooks();
+    }
+
+    // --- WEBHOOK SIGNATURE VERIFIER ---
+    async function verifyWebhookSignature(e) {
+      e.preventDefault();
+      const signature = document.getElementById("wh-signature").value.trim();
+      const payload = document.getElementById("wh-payload").value.trim();
+      try {
+        const res = await fetch("/api/webhook/verify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Tapsilat-Signature": signature
+          },
+          body: payload
+        });
+        const data = await res.json();
+        document.getElementById("wh-verify-json").innerText = JSON.stringify(data, null, 2);
+        document.getElementById("wh-verify-result").classList.remove("d-none");
+      } catch (err) {
+        alert("Network error: " + err);
+      }
     }
   </script>
 </body>
