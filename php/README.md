@@ -6,12 +6,14 @@ This project is a Docker-supported e-commerce cart application developed using t
 
 This application uses the [tapsilat/tapsilat-php](https://github.com/tapsilat/tapsilat-php) library. With Tapsilat PHP SDK, you can easily perform operations such as:
 
-- Order creation
+- Order creation, refund, and cancellation
+- Elements sessions (create, get, cancel) for native mobile SDK card sheets
+- Order Item Payment (OIP) recording outside checkout (`POST /order/oip`)
 - Payment page URL retrieval
 - Basket items management
 - Customer and address information processing
 - Installment options
-- Payment status tracking
+- Payment status tracking and webhook signature verification (`TapsilatAPI::verifyWebhook`)
 
 ## Technologies Used
 
@@ -46,6 +48,8 @@ cp .env.example .env
 Edit the `.env` file:
 ```env
 TAPSILAT_API_KEY=your_actual_api_key_here
+TAPSILAT_WEBHOOK_SECRET=your_webhook_secret_here
+TAPSILAT_BASE_URL=https://api.tapsilat.com
 ```
 
 ### 2. Run with Docker
