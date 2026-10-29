@@ -1,0 +1,59 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Runtime & Callbacks
+webhooks/
+logs/
+*.log
+
+# Dependencies & Build Outputs
+node_modules/
+dist/
+dist-ssr/
+build/
+target/
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+vendor/
+.bundle/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+
+# Compiled Binaries & Libraries
+*.so
+*.dylib
+*.dll
+*.exe
+main
+
+# IDE & Editor Files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.user
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

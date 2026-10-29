@@ -1,0 +1,26 @@
+# WordPress Local Mount & Data
+wordpress/
+mysql_data/
+*.sql
+*.sql.gz
+
+# Environment & Secrets
+.env
+.env.local
+!.env.example
+
+# Logs & Runtime
+logs/
+*.log
+
+# IDE & Editor Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+._*
+
