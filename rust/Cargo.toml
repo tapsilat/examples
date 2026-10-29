@@ -12,6 +12,6 @@ dotenv = "0.15"
 tera = "1"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = "0.4"
-tapsilat = { path = "../../sdks/tapsilat-rust" }
+tapsilat = "2026.10.26"
 rand = "0.8"
 env_logger = "0.10"

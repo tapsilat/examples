@@ -7,11 +7,12 @@ use std::env;
 use std::fs;
 use std::io::Write;
 use tapsilat::{
-    TapsilatClient,
+    TapsilatClient, WebhookEvent, WebhookModule,
     types::{
         CreateOrderRequest, CreateBuyerRequest, BasketItemDTO, BillingAddressDTO,
         ShippingAddressDTO, MetadataDTO,
-        SubscriptionCreateRequest, SubscriptionUser, SubscriptionBilling
+        SubscriptionCreateRequest, SubscriptionUser, SubscriptionBilling,
+        ElementsSessionCreateRequest,
     }
 };
 use tera::Tera;
@@ -193,9 +194,7 @@ async fn create_order(
             quantity: Some(1), // API requires 1 if price is total
             category1: Some("Electronics".to_string()),
             item_type: Some("PHYSICAL".to_string()),
-            // Set defaults for others
-            category2: None, commission_amount: None, coupon: None, coupon_discount: None,
-            data: None, paid_amount: None, payer: None, quantity_float: None, quantity_unit: None, sub_merchant_key: None, sub_merchant_price: None
+            ..Default::default()
         }
     }).collect();
 
@@ -236,6 +235,7 @@ async fn create_order(
             country: Some("Turkey".to_string()),
             zip_code: Some(billing.zip_code.clone()),
             ip: Some("127.0.0.1".to_string()),
+            ..Default::default()
         },
         billing_address: Some(BillingAddressDTO {
             contact_name: Some(billing.contact_name.clone()),
@@ -244,8 +244,7 @@ async fn create_order(
             address: Some(billing.address.clone()),
             zip_code: Some(billing.zip_code.clone()),
             vat_number: Some(billing.vat_number.clone()),
-            // Defaults
-            billing_type: None, citizenship: None, contact_phone: None, district: None, tax_office: None, title: None,
+            ..Default::default()
         }),
         shipping_address: Some(ShippingAddressDTO {
             contact_name: Some(shipping.contact_name.clone()),
@@ -253,8 +252,7 @@ async fn create_order(
             country: Some("Turkey".to_string()),
             address: Some(shipping.address.clone()),
             zip_code: Some(shipping.zip_code.clone()),
-            // Defaults
-            shipping_date: None, tracking_code: None,
+            ..Default::default()
         }),
         basket_items: Some(basket_items),
         metadata: Some(metadata),
@@ -264,11 +262,7 @@ async fn create_order(
         payment_methods: Some(req.payment_methods),
         payment_options: Some(if req.payment_options.is_empty() { vec!["card".to_string(), "bank_transfer".to_string()] } else { req.payment_options.clone() }),
         enabled_installments: if req.enabled_installments.is_empty() { None } else { Some(req.enabled_installments.clone()) },
-        
-        // Defaults for others
-        checkout_design: None, order_cards: None, paid_amount: None, partial_payment: None, 
-        payment_mode: None, payment_terms: None, pf_sub_merchant: None, redirect_failure_url: None, 
-        redirect_success_url: None, sub_organization: None, submerchants: None, tax_amount: None,
+        ..Default::default()
     };
 
     match data.client.create_order(create_req) {
@@ -333,8 +327,8 @@ async fn create_subscription(
             city: Some("Istanbul".to_string()),
             country: Some("Turkey".to_string()),
             zip_code: Some("34000".to_string()),
-            // Defaults
             identity_number: Some("11111111111".to_string()),
+            ..Default::default()
         }),
         billing: Some(SubscriptionBilling {
             contact_name: Some("John Doe".to_string()),
@@ -343,9 +337,9 @@ async fn create_subscription(
             address: Some("Mock Billing Address".to_string()),
             zip_code: Some("34000".to_string()),
             vat_number: Some("11111111111".to_string()),
+            ..Default::default()
         }),
-        // Defaults
-        card_id: None, external_reference_id: None,
+        ..Default::default()
     };
 
     match data.client.create_subscription(sub_req) {
@@ -621,7 +615,7 @@ async fn webhook_callback(path: web::Path<String>, body: web::Bytes) -> impl Res
 }
 
 async fn list_webhooks() -> impl Responder {
-    let mut entries = fs::read_dir("webhooks")
+    let entries = fs::read_dir("webhooks")
         .map(|res| res.map(|e| e.ok()).collect::<Vec<_>>())
         .unwrap_or_default()
         .into_iter()
@@ -644,6 +638,116 @@ async fn list_webhooks() -> impl Responder {
     logs.reverse();
     
     HttpResponse::Ok().json(logs)
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateElementsRequest {
+    purpose: String,
+    #[serde(default)]
+    order_reference_id: Option<String>,
+    #[serde(default)]
+    user_id: Option<String>,
+    #[serde(default)]
+    user_email: Option<String>,
+    #[serde(default)]
+    mode: Option<i32>,
+    #[serde(default)]
+    save_card: bool,
+}
+
+async fn create_elements_session(
+    req: web::Json<CreateElementsRequest>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let payload = ElementsSessionCreateRequest {
+        purpose: req.purpose.clone(),
+        order_reference_id: req.order_reference_id.clone(),
+        user_id: req.user_id.clone(),
+        user_email: req.user_email.clone(),
+        mode: req.mode,
+        save_card: req.save_card,
+        ..Default::default()
+    };
+    match data.client.elements().create_session(payload) {
+        Ok(res) => HttpResponse::Ok().json(serde_json::to_value(&res).unwrap_or_default()),
+        Err(e) => HttpResponse::BadRequest().json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+async fn get_elements_session(
+    path: web::Path<String>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let id = path.into_inner();
+    match data.client.elements().get_session(&id) {
+        Ok(res) => HttpResponse::Ok().json(serde_json::to_value(&res).unwrap_or_default()),
+        Err(e) => HttpResponse::BadRequest().json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+async fn cancel_elements_session(
+    path: web::Path<String>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let id = path.into_inner();
+    match data.client.elements().cancel_session(&id) {
+        Ok(res) => HttpResponse::Ok().json(serde_json::to_value(&res).unwrap_or_default()),
+        Err(e) => HttpResponse::BadRequest().json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+async fn verify_webhook(
+    http_req: actix_web::HttpRequest,
+    body: web::Bytes,
+) -> impl Responder {
+    let secret = match env::var("TAPSILAT_WEBHOOK_SECRET") {
+        Ok(s) if !s.is_empty() => s,
+        _ => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "TAPSILAT_WEBHOOK_SECRET is not configured"
+            }))
+        }
+    };
+    let signature = http_req
+        .headers()
+        .get("Tapsilat-Signature")
+        .or_else(|| http_req.headers().get("X-Tapsilat-Signature"))
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("");
+
+    let payload_str = match std::str::from_utf8(&body) {
+        Ok(s) => s,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid UTF-8 payload"
+            }))
+        }
+    };
+
+    let is_valid = WebhookModule::verify_webhook(payload_str, signature, &secret).unwrap_or(false);
+    if !is_valid {
+        return HttpResponse::Unauthorized().json(serde_json::json!({
+            "valid": false,
+            "error": "Invalid webhook signature"
+        }));
+    }
+
+    match WebhookEvent::from_payload(payload_str) {
+        Ok(event) => HttpResponse::Ok().json(serde_json::json!({
+            "valid": true,
+            "reference_id": event.reference_id(),
+            "conversation_id": event.conversation_id(),
+            "status": event.status().map(|s| format!("{:?}", s)),
+            "status_code": event.status_code(),
+            "is_paid": event.is_paid(),
+            "is_failed": event.is_failed(),
+            "is_refunded": event.is_refunded(),
+        })),
+        Err(e) => HttpResponse::Ok().json(serde_json::json!({
+            "valid": true,
+            "parse_error": e.to_string(),
+        })),
+    }
 }
 
 #[actix_web::main]
@@ -697,11 +801,17 @@ async fn main() -> std::io::Result<()> {
             .route("/api/term/update", web::post().to(update_order_term))
             .route("/api/term/refund", web::post().to(refund_order_term))
 
+            // Elements Sessions
+            .route("/api/elements/sessions", web::post().to(create_elements_session))
+            .route("/api/elements/sessions/{id}", web::get().to(get_elements_session))
+            .route("/api/elements/sessions/{id}/cancel", web::post().to(cancel_elements_session))
+
             // Extra
             .route("/api/order/terminate", web::post().to(terminate_order))
             .route("/api/order/manual-callback", web::post().to(manual_callback))
             
             .route("/api/webhooks", web::get().to(list_webhooks))
+            .route("/api/webhook/verify", web::post().to(verify_webhook))
             .route("/api/callback", web::post().to(|b: web::Bytes| webhook_callback(web::Path::from("success".to_string()), b)))
             .route("/api/fail_callback", web::post().to(|b: web::Bytes| webhook_callback(web::Path::from("fail".to_string()), b)))
             .route("/api/refund_callback", web::post().to(|b: web::Bytes| webhook_callback(web::Path::from("refund".to_string()), b)))

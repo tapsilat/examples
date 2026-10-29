@@ -1,2 +1,29 @@
-target
+# Build Output
+target/
+debug/
+release/
+
+# Environment & Secrets
 .env
+.env.local
+!.env.example
+
+# Runtime & Callbacks
+webhooks/
+logs/
+*.log
+
+# Backup & Temporary Files
+*.rs.bk
+*.bk
+*.swp
+*.swo
+*~
+
+# IDE & Editor Files
+.idea/
+.vscode/
+
+# Operating System Files
+.DS_Store
+._*
