@@ -4,68 +4,76 @@ Welcome to the Tapsilat examples repository — a collection of small, focused e
 
 This repository is intended to help developers quickly find working examples in the language or framework they prefer and to serve as a reference when building on top of Tapsilat libraries and APIs.
 
-## Contents
+## Available Examples
 
-- go/          — Go examples
-- java/        — Java examples (dashboard and others)
-- php/         — PHP examples
-- python/      — Python examples
-- react/       — React examples
-- ruby/        — Ruby examples
-- rust/        — Rust examples
-- typescript/  — TypeScript examples
-- woocommerce/ — WooCommerce examples
-- web/         — HTML/CSS/JS assets used by examples
+| Example Directory | Language / Stack | Default Port | Features Covered |
+| :--- | :--- | :--- | :--- |
+| **[`go/`](./go)** | Go 1.20+ (net/http) | `:5005` | Orders, Subscriptions, Terms, Submerchants, Elements Sessions, OIP, Webhook Verification |
+| **[`typescript/`](./typescript)** | TypeScript / Express | `:8080` | Orders, Subscriptions, Terms, Submerchants, Elements Sessions, OIP, Webhook Verification |
+| **[`python/`](./python)** | Python 3.10+ / Flask | `:5001` (local) / `:5000` (Docker) | Orders, Subscriptions, Terms, Submerchants, Elements Sessions, OIP, Webhook Verification |
+| **[`rust/`](./rust)** | Rust / Actix-Web | `:5005` | Orders, Subscriptions, Terms, Submerchants, Elements Sessions, Webhook Verification |
+| **[`net/`](./net)** | .NET 8.0 (ASP.NET Core) | `:8080` | Orders, Subscriptions, Terms, Submerchants, Elements Sessions, OIP, Webhook Verification |
+| **[`php/`](./php)** | PHP 8.2+ / Plain PHP | `:8000` | Orders, Subscriptions, Terms, Submerchants, Elements Sessions, OIP, Webhook Verification |
+| **[`java/`](./java)** | Java 17+ / Spring Boot 3 | `:8080` | Orders, Subscriptions, Terms, Submerchants, Elements Sessions, OIP, Webhook Verification |
+| **[`ruby/`](./ruby)** | Ruby 3.0+ / Sinatra | `:8080` | Orders, Subscriptions, Terms, Submerchants, Webhook Verification |
+| **[`react/`](./react)** | React 19 / Vite / TS | `:5173` (dev) / `:5592` (preview) | React Provider & Hooks (`useTapsilatOrder`, `useTapsilatSubscription`, `useTapsilatOrganization`) |
+| **[`woocommerce/`](./woocommerce)** | WordPress / WooCommerce | `:8092` (WP) / `:8093` (PMA) | Complete Dockerized WordPress & WooCommerce store with Tapsilat plugin |
 
-(Each subdirectory contains one or more self-contained examples. Look for a README or instructions inside each folder for language-specific steps.)
+Each subdirectory contains a self-contained example. Look inside each folder for detailed language-specific guides and Docker commands.
 
-## Quick start
+## Common Environment Variables
 
-1. Clone the repo:
+Most examples accept the following environment variables (defined in a `.env` file from `.env.example`):
+
+```bash
+# Your secret Tapsilat API key (from panel.tapsilat.dev)
+TAPSILAT_API_KEY=your_api_key_here
+
+# Webhook signing secret (used to verify incoming Tapsilat-Signature headers)
+TAPSILAT_WEBHOOK_SECRET=your_webhook_secret_here
+
+# Base API endpoint (defaults to production if omitted)
+TAPSILAT_BASE_URL=https://api.tapsilat.com
+```
+
+## Quick Start
+
+1. **Clone the repository:**
+   ```bash
    git clone https://github.com/tapsilat/examples.git
-2. Change into the example you want to run:
-   cd examples/<language>/<example-name>
-3. Follow the language-specific instructions in that folder:
-   - Java: check for Maven/Gradle or a README with run instructions
-   - Go: run `go run` or `go build` after `go mod tidy`
-   - Node/TypeScript/React: `npm install` or `yarn`, then `npm start` or `npm run build`
-   - Python: create a virtualenv, `pip install -r requirements.txt`, then run the script
-   - PHP: use Composer if present, or run with PHP built-in server
-   - Ruby: run `bundle install` (if Gemfile present) then `ruby your_script.rb`
-   - Rust: `cargo run`
-   - WooCommerce: follow README in the woocommerce/ folder for plugin or integration steps
+   cd examples
+   ```
 
-If an example folder does not include detailed instructions, open the source files and the repository-level documentation for guidance.
+2. **Navigate to your desired language:**
+   ```bash
+   cd go          # or typescript, python, rust, net, php, java, ruby, react, woocommerce
+   ```
 
-## How to use these examples
+3. **Follow the setup instructions in each folder's README:**
+   - **Go**: `cp .env.example .env && go run main.go` or `docker compose up --build`
+   - **TypeScript**: `cp .env.example .env && npm install && npm start`
+   - **Python**: `python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && python3 app.py`
+   - **Rust**: `cargo run`
+   - **.NET**: `dotnet run` or `docker compose up --build`
+   - **PHP**: `docker-compose up -d` or `composer install && php -S 0.0.0.0:8000 -t public`
+   - **Java**: `mvn spring-boot:run` or `docker compose up --build`
+   - **Ruby**: `bundle install && bundle exec ruby app.rb`
+   - **React**: `npm install && npm run dev`
+   - **WooCommerce**: `docker-compose up -d`
 
-- Copy the example code you need into your project and adapt configuration (API keys, endpoints, credentials).
-- Replace any placeholder values and secrets with your own environment variables or secrets store.
-- Prefer running examples locally first before deploying to a staging or production environment.
+## Key Capabilities Demonstrated
+
+- **Checkout & Orders**: Create orders, generate hosted checkout links, query order details, transactions, and execute refunds or cancellations.
+- **Tapsilat Elements Sessions**: Backend creation and lifecycle management (`create`, `get`, `cancel`) of mobile card sessions (`pay` or `tokenize`) for native iOS & Android card sheets.
+- **Order Item Payment (OIP)**: Record external item payments taken outside checkout (`POST /order/oip`).
+- **Payment Terms & Subscriptions**: Create installment-based payment terms and recurring recurring billing plans.
+- **Webhook Signature Verification**: Verify incoming `Tapsilat-Signature` HMAC-SHA256 headers using official SDK helper methods.
 
 ## Contributing
 
-Contributions are welcome!
-
-- Open an issue for discussion if you want to add a new example or change an existing one.
-- Fork the repository, add or update the example, include a short README in the example folder describing how to run it, and open a pull request.
-- Keep examples small, self-contained, and documented (include commands to install dependencies and to run the example).
-
-Guidelines:
-- Use clear, minimal dependencies.
-- Add tests where appropriate.
-- Include license headers if adding third-party content.
-
-## Issues & Support
-
-Found a problem or want a new example? Use the GitHub Issues page:
-https://github.com/tapsilat/examples/issues
+Contributions are welcome! Please open an issue or pull request on GitHub:  
+https://github.com/tapsilat/examples
 
 ## License
 
-This repository is licensed under the MIT License. See LICENSE for details.
-
-## A note about repository metadata
-
-I fetched repository metadata when preparing this README. The API results used to inspect the repository may be incomplete; view the full commit history and latest repository data on GitHub:
-https://github.com/tapsilat/examples/commits
+This repository is licensed under the MIT License. See [LICENSE](LICENSE) for details.
