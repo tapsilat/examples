@@ -9,6 +9,8 @@ services:
       - .:/var/www/html
     environment:
       - TAPSILAT_API_KEY=${TAPSILAT_API_KEY}
+      - TAPSILAT_WEBHOOK_SECRET=${TAPSILAT_WEBHOOK_SECRET:-}
+      - TAPSILAT_BASE_URL=${TAPSILAT_BASE_URL:-https://api.tapsilat.com}
     working_dir: /var/www/html
     command: ['php', '-S', '0.0.0.0:8000', '-t', 'public']
     networks:

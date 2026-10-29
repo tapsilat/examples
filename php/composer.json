@@ -4,7 +4,7 @@
   "type": "project",
   "require": {
     "php": ">=7.4",
-    "tapsilat/tapsilat-php": "^2025.08.14"
+    "tapsilat/tapsilat-php": "^2026.10.26"
   },
   "autoload": {
     "psr-4": {

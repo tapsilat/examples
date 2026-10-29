@@ -1,6 +1,29 @@
-.env
+# Dependencies
 /vendor/
-/logs/
-.DS_Store
+composer.phar
+
+# Environment & Secrets
+.env
+.env.local
+!.env.example
+
+# Runtime & Callbacks
+webhooks/
+logs/
 *.log
-composer.lock
+tmp/
+
+# Testing & Tools
+.phpunit.cache/
+.php-cs-fixer.cache
+
+# IDE & Editor Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+._*

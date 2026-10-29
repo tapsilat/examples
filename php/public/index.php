@@ -321,6 +321,90 @@ if ($path === '/api/term/delete' && $method === 'POST') {
     }
 }
 
+// Elements Sessions
+if ($path === '/api/elements/sessions' && $method === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    try {
+        $req = new \Tapsilat\Models\ElementsSessionCreateRequest($input);
+        $res = $api->createElementsSession($req);
+        jsonResponse($res->toArray());
+    } catch (Exception $e) {
+        jsonResponse(['error' => $e->getMessage()], 500);
+    }
+}
+
+if (preg_match('#^/api/elements/sessions/([^/]+)/cancel$#', $path, $matches) && $method === 'POST') {
+    $id = $matches[1];
+    try {
+        $res = $api->cancelElementsSession($id);
+        jsonResponse($res->toArray());
+    } catch (Exception $e) {
+        jsonResponse(['error' => $e->getMessage()], 500);
+    }
+}
+
+if (preg_match('#^/api/elements/sessions/([^/]+)$#', $path, $matches) && $method === 'GET') {
+    $id = $matches[1];
+    try {
+        $res = $api->getElementsSession($id);
+        jsonResponse($res->toArray());
+    } catch (Exception $e) {
+        jsonResponse(['error' => $e->getMessage()], 500);
+    }
+}
+
+// Order Item Payment (OIP)
+if ($path === '/api/order/oip' && $method === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    try {
+        $dto = new \Tapsilat\Models\OrderOIPDTO(
+            $input['amount'] ?? 0,
+            $input['type'] ?? 1,
+            $input['basket_item_id'] ?? null,
+            $input['order_id'] ?? null,
+            $input['order_item_id'] ?? null,
+            $input['paid_date'] ?? null,
+            $input['wallet_id'] ?? null
+        );
+        $res = $api->addOrderOip($dto);
+        jsonResponse($res);
+    } catch (Exception $e) {
+        jsonResponse(['error' => $e->getMessage()], 500);
+    }
+}
+
+// Webhook Signature Verification
+if ($path === '/api/webhook/verify' && $method === 'POST') {
+    $secret = $_ENV['TAPSILAT_WEBHOOK_SECRET'] ?? getenv('TAPSILAT_WEBHOOK_SECRET');
+    if (!$secret) {
+        jsonResponse(['error' => 'TAPSILAT_WEBHOOK_SECRET is not configured'], 400);
+    }
+
+    $signature = $_SERVER['HTTP_TAPSILAT_SIGNATURE'] ?? $_SERVER['HTTP_X_TAPSILAT_SIGNATURE'] ?? '';
+    $payload = file_get_contents('php://input');
+
+    $isValid = TapsilatAPI::verifyWebhook($payload, $signature, $secret);
+    if (!$isValid) {
+        jsonResponse(['valid' => false, 'error' => 'Invalid webhook signature'], 401);
+    }
+
+    try {
+        $event = \Tapsilat\WebhookEvent::fromPayload($payload);
+        jsonResponse([
+            'valid' => true,
+            'reference_id' => $event->getReferenceId(),
+            'conversation_id' => $event->getConversationId(),
+            'status' => $event->getStatus(),
+            'status_code' => $event->getStatusCode(),
+            'is_paid' => $event->isPaid(),
+            'is_failed' => $event->isFailed(),
+            'is_refunded' => $event->isRefunded()
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(['valid' => true, 'parse_error' => $e->getMessage()]);
+    }
+}
+
 // Webhooks listing
 if ($path === '/api/webhooks' && $method === 'GET') {
     $files = glob(__DIR__ . '/../webhooks/*.json');
