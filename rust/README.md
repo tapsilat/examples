@@ -11,7 +11,7 @@ This project demonstrates how to use the Tapsilat Rust SDK to create orders and 
 
 1. Clone the repository (if you haven't already):
    ```bash
-   git clone https://github.com/tapsilat/tapsilat-rust.git
+   git clone https://github.com/tapsilat/examples.git
    cd examples/rust
    ```
 
@@ -27,9 +27,10 @@ This project demonstrates how to use the Tapsilat Rust SDK to create orders and 
    cp .env.example .env
    ```
 
-2. Edit the `.env` file and set your Tapsilat API key:
+2. Edit the `.env` file and set your Tapsilat credentials:
    ```bash
    TAPSILAT_API_KEY=your_api_key_here
+   TAPSILAT_WEBHOOK_SECRET=your_webhook_secret_here
    PORT=5005
    ```
 
@@ -45,11 +46,10 @@ This project demonstrates how to use the Tapsilat Rust SDK to create orders and 
 
 ## Usage
 
-1. **New Order**: Add items to your cart.
-2. **Address**: Proceed to the "Address Information" step. The form is pre-filled with mock data for testing purposes.
-3. **Payment**: Proceed to the "Payment" step.
-4. **Installments**: Select an installment option.
-5. **Complete**: Click "Complete Order" to initiate the payment process with Tapsilat.
+1. **New Order**: Add items to your cart and create orders with hosted checkout links.
+2. **Elements Sessions**: Create, view, and cancel native mobile card sheet sessions (`/api/elements/sessions`).
+3. **Subscriptions & Terms**: Manage recurring plans and term schedules.
+4. **Webhook Signature Verifier**: Test signature validation with `WebhookModule::verify_webhook`.
 
 ## Project Structure
 
