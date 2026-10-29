@@ -712,5 +712,98 @@ def webhook_logs():
                     pass
     return jsonify(logs)
 
+# --- ELEMENTS SESSIONS ---
+
+@app.route("/api/elements/sessions", methods=["POST"])
+def create_elements_session():
+    try:
+        data = request.get_json() or {}
+        client = get_api_client()
+        req = tapsilat_models.ElementsSessionCreateRequest(
+            purpose=data.get("purpose", "pay"),
+            order_reference_id=data.get("order_reference_id"),
+            user_id=data.get("user_id"),
+            user_email=data.get("user_email"),
+            mode=int(data["mode"]) if "mode" in data and data["mode"] is not None else None,
+            save_card=bool(data.get("save_card", False))
+        )
+        session = client.create_elements_session(req)
+        return jsonify(session.to_dict())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/api/elements/sessions/<session_id>", methods=["GET"])
+def get_elements_session(session_id):
+    try:
+        client = get_api_client()
+        session = client.get_elements_session(session_id)
+        return jsonify(session.to_dict())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/api/elements/sessions/<session_id>/cancel", methods=["POST"])
+def cancel_elements_session(session_id):
+    try:
+        client = get_api_client()
+        session = client.cancel_elements_session(session_id)
+        return jsonify(session.to_dict())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# --- ORDER ITEM PAYMENT (OIP) ---
+
+@app.route("/api/order/oip", methods=["POST"])
+def add_order_oip():
+    try:
+        data = request.get_json() or {}
+        client = get_api_client()
+        req = tapsilat_models.OrderOIPDTO(
+            order_id=str(data.get("order_id", "")),
+            basket_item_id=str(data.get("basket_item_id", "")),
+            amount=float(data.get("amount", 0.0)),
+            type=int(data.get("type", 1)),
+            wallet_id=data.get("wallet_id"),
+            paid_date=data.get("paid_date")
+        )
+        result = client.add_order_oip(req)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# --- WEBHOOK VERIFICATION ---
+
+@app.route("/api/webhook/verify", methods=["POST"])
+def verify_webhook():
+    try:
+        secret = os.getenv("TAPSILAT_WEBHOOK_SECRET")
+        if not secret:
+            return jsonify({"error": "TAPSILAT_WEBHOOK_SECRET is not configured"}), 400
+
+        signature = (
+            request.headers.get("Tapsilat-Signature")
+            or request.headers.get("X-Tapsilat-Signature")
+            or ""
+        )
+        raw_payload = request.get_data()
+
+        is_valid = TapsilatAPI.verify_webhook(raw_payload, signature, secret)
+        if not is_valid:
+            return jsonify({"valid": False, "error": "Invalid webhook signature"}), 401
+
+        from tapsilat_py.webhooks import WebhookEvent
+        event = WebhookEvent.from_payload(raw_payload)
+        return jsonify({
+            "valid": True,
+            "reference_id": event.reference_id,
+            "conversation_id": event.conversation_id,
+            "status": event.status,
+            "status_code": event.status_code,
+            "is_paid": event.is_paid(),
+            "is_failed": event.is_failed(),
+            "is_refunded": event.is_refunded(),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

@@ -9,6 +9,7 @@ services:
       - .:/app
     environment:
       - TAPSILAT_API_KEY=${TAPSILAT_API_KEY}
+      - TAPSILAT_WEBHOOK_SECRET=${TAPSILAT_WEBHOOK_SECRET}
       - FLASK_ENV=development
       - FLASK_DEBUG=1
     working_dir: /app

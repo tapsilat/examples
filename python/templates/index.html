@@ -41,6 +41,8 @@
             <a class="nav-link" data-tab="orders"><i class="fas fa-list"></i> Order List</a>
             <a class="nav-link" data-tab="subscriptions"><i class="fas fa-sync-alt"></i> Subscriptions</a>
             <a class="nav-link" data-tab="organization"><i class="fas fa-building"></i> Organization</a>
+            <a class="nav-link" data-tab="elements"><i class="fas fa-mobile-alt"></i> Elements</a>
+            <a class="nav-link" data-tab="oip"><i class="fas fa-receipt"></i> Order OIP</a>
             <a class="nav-link" data-tab="terms"><i class="fas fa-calendar-alt"></i> Payment Terms</a>
             <a class="nav-link" data-tab="system"><i class="fas fa-server"></i> System Data</a>
             <a class="nav-link" data-tab="webhooks"><i class="fas fa-terminal"></i> Webhooks</a>
@@ -287,9 +289,118 @@
             </div>
         </section>
 
+        <!-- Elements Sessions -->
+        <section id="tab-elements" class="tab-view">
+            <h1 class="mb-2">Tapsilat Elements Sessions</h1>
+            <p class="text-muted">Create, retrieve, and cancel mobile SDK card sessions (POST /elements/sessions).</p>
+            <div class="row" style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+                <div class="glass-card" style="flex:1; min-width:320px;">
+                    <h3>Create Session</h3>
+                    <div class="form-group mt-1">
+                        <label class="form-label">Purpose</label>
+                        <select id="elem-purpose" class="form-input" onchange="toggleElemFields()">
+                            <option value="pay">Pay (Order checkout)</option>
+                            <option value="tokenize">Tokenize (Save card)</option>
+                        </select>
+                    </div>
+                    <div class="form-group mt-1" id="elem-order-ref-group">
+                        <label class="form-label">Order Reference ID</label>
+                        <input type="text" id="elem-order-ref" class="form-input" placeholder="ORD-12345">
+                    </div>
+                    <div class="form-group mt-1" id="elem-user-id-group" style="display:none;">
+                        <label class="form-label">User ID</label>
+                        <input type="text" id="elem-user-id" class="form-input" placeholder="usr_123">
+                    </div>
+                    <div class="form-group mt-1" id="elem-user-email-group" style="display:none;">
+                        <label class="form-label">User Email</label>
+                        <input type="email" id="elem-user-email" class="form-input" placeholder="buyer@example.com">
+                    </div>
+                    <div class="form-group mt-1">
+                        <label class="form-label">Mode</label>
+                        <select id="elem-mode" class="form-input">
+                            <option value="1">1 - 3D Secure</option>
+                            <option value="2">2 - Half Secure</option>
+                            <option value="3">3 - Non Secure</option>
+                        </select>
+                    </div>
+                    <div class="form-group mt-1">
+                        <label><input type="checkbox" id="elem-save-card"> Save Card</label>
+                    </div>
+                    <button class="btn btn-primary mt-1" onclick="createElemSession()">Create Session</button>
+                    <pre id="elem-create-res" class="json-block mt-2" style="display:none;"></pre>
+                </div>
+                <div class="glass-card" style="flex:1; min-width:320px;">
+                    <h3>Get / Cancel Session</h3>
+                    <div class="form-group mt-1">
+                        <label class="form-label">Session ID</label>
+                        <input type="text" id="elem-session-id" class="form-input" placeholder="es_live_...">
+                    </div>
+                    <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                        <button class="btn btn-secondary" onclick="getElemSession()">Get Session</button>
+                        <button class="btn btn-danger" onclick="cancelElemSession()">Cancel Session</button>
+                    </div>
+                    <pre id="elem-lookup-res" class="json-block mt-2" style="display:none;"></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Order Item Payment (OIP) -->
+        <section id="tab-oip" class="tab-view">
+            <h1 class="mb-2">Order Item Payment (OIP)</h1>
+            <p class="text-muted">Record order item payments taken outside the checkout (POST /order/oip).</p>
+            <div class="glass-card" style="max-width:600px;">
+                <div class="form-group mt-1">
+                    <label class="form-label">Order ID</label>
+                    <input type="text" id="oip-order-id" class="form-input" placeholder="Order UUID" required>
+                </div>
+                <div class="form-group mt-1">
+                    <label class="form-label">Basket Item ID</label>
+                    <input type="text" id="oip-item-id" class="form-input" placeholder="Basket Item ID" required>
+                </div>
+                <div class="form-group mt-1">
+                    <label class="form-label">Amount</label>
+                    <input type="number" step="0.01" id="oip-amount" class="form-input" placeholder="50.00" required>
+                </div>
+                <div class="form-group mt-1">
+                    <label class="form-label">Payment Type</label>
+                    <select id="oip-type" class="form-input">
+                        <option value="1">1 - VPOS</option>
+                        <option value="2">2 - Money Transfer</option>
+                        <option value="3">3 - Wallet</option>
+                        <option value="4">4 - Loan</option>
+                        <option value="5">5 - PIN</option>
+                        <option value="6">6 - Remittance</option>
+                        <option value="7">7 - Metropol</option>
+                        <option value="8">8 - TGN</option>
+                        <option value="9">9 - VIBAN</option>
+                        <option value="10">10 - Personal Loan</option>
+                        <option value="11">11 - Stripe</option>
+                        <option value="12">12 - Stripe VBAN</option>
+                    </select>
+                </div>
+                <button class="btn btn-success mt-2" onclick="submitOipPayment()">Submit OIP</button>
+                <pre id="oip-res" class="json-block mt-2" style="display:none;"></pre>
+            </div>
+        </section>
+
         <!-- Webhooks -->
         <section id="tab-webhooks" class="tab-view">
-            <h1 class="mb-2">Real-time Webhook Monitor</h1>
+            <h1 class="mb-2">Real-time Webhook Monitor & Verifier</h1>
+            
+            <div class="glass-card mb-2" style="border-left: 4px solid var(--primary);">
+                <h3>Verify Webhook Signature (SDK Helper)</h3>
+                <div class="form-group mt-1">
+                    <label class="form-label">Tapsilat-Signature Header</label>
+                    <input type="text" id="wh-sig" class="form-input" placeholder="t=1730000000,v1=...">
+                </div>
+                <div class="form-group mt-1">
+                    <label class="form-label">Raw JSON Payload</label>
+                    <textarea id="wh-body" class="form-input" rows="3" placeholder='{"event":"order.completed","data":{"reference_id":"..."}}'></textarea>
+                </div>
+                <button class="btn btn-primary mt-1" onclick="verifyWebhookSig()">Verify Signature & Parse Event</button>
+                <pre id="wh-verify-res" class="json-block mt-2" style="display:none;"></pre>
+            </div>
+
             <div class="glass-card" style="border-left: 4px solid var(--primary);">
                 <div id="webhook-logs" style="display: flex; flex-direction: column; gap: 1rem;">
                     <div class="text-center py-4 text-muted">Listening for webhooks...</div>
@@ -584,6 +695,103 @@
                 `).join('');
             } catch (e) {}
         }, 3000);
+
+        // Elements Sessions
+        function toggleElemFields() {
+            const isPay = document.getElementById('elem-purpose').value === 'pay';
+            document.getElementById('elem-order-ref-group').style.display = isPay ? 'block' : 'none';
+            document.getElementById('elem-user-id-group').style.display = isPay ? 'none' : 'block';
+            document.getElementById('elem-user-email-group').style.display = isPay ? 'none' : 'block';
+        }
+
+        async function createElemSession() {
+            const purpose = document.getElementById('elem-purpose').value;
+            const payload = {
+                purpose: purpose,
+                mode: parseInt(document.getElementById('elem-mode').value),
+                save_card: document.getElementById('elem-save-card').checked
+            };
+            if (purpose === 'pay') {
+                payload.order_reference_id = document.getElementById('elem-order-ref').value;
+            } else {
+                payload.user_id = document.getElementById('elem-user-id').value;
+                payload.user_email = document.getElementById('elem-user-email').value;
+            }
+            try {
+                const res = await apiCall('/api/elements/sessions', 'POST', payload);
+                const el = document.getElementById('elem-create-res');
+                el.innerText = JSON.stringify(res, null, 2);
+                el.style.display = 'block';
+            } catch (e) {
+                alert('Create error: ' + e);
+            }
+        }
+
+        async function getElemSession() {
+            const id = document.getElementById('elem-session-id').value.trim();
+            if (!id) return alert('Enter Session ID');
+            try {
+                const res = await apiCall('/api/elements/sessions/' + encodeURIComponent(id));
+                const el = document.getElementById('elem-lookup-res');
+                el.innerText = JSON.stringify(res, null, 2);
+                el.style.display = 'block';
+            } catch (e) {
+                alert('Lookup error: ' + e);
+            }
+        }
+
+        async function cancelElemSession() {
+            const id = document.getElementById('elem-session-id').value.trim();
+            if (!id) return alert('Enter Session ID');
+            try {
+                const res = await apiCall('/api/elements/sessions/' + encodeURIComponent(id) + '/cancel', 'POST');
+                const el = document.getElementById('elem-lookup-res');
+                el.innerText = JSON.stringify(res, null, 2);
+                el.style.display = 'block';
+            } catch (e) {
+                alert('Cancel error: ' + e);
+            }
+        }
+
+        // Order Item Payment
+        async function submitOipPayment() {
+            const payload = {
+                order_id: document.getElementById('oip-order-id').value.trim(),
+                basket_item_id: document.getElementById('oip-item-id').value.trim(),
+                amount: parseFloat(document.getElementById('oip-amount').value),
+                type: parseInt(document.getElementById('oip-type').value)
+            };
+            try {
+                const res = await apiCall('/api/order/oip', 'POST', payload);
+                const el = document.getElementById('oip-res');
+                el.innerText = JSON.stringify(res, null, 2);
+                el.style.display = 'block';
+            } catch (e) {
+                alert('OIP error: ' + e);
+            }
+        }
+
+        // Webhook Verification
+        async function verifyWebhookSig() {
+            const sig = document.getElementById('wh-sig').value.trim();
+            const body = document.getElementById('wh-body').value.trim();
+            try {
+                const res = await fetch('/api/webhook/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Tapsilat-Signature': sig
+                    },
+                    body: body
+                });
+                const data = await res.json();
+                const el = document.getElementById('wh-verify-res');
+                el.innerText = JSON.stringify(data, null, 2);
+                el.style.display = 'block';
+            } catch (e) {
+                alert('Verify error: ' + e);
+            }
+        }
 
         // Initial Load
         loadOrders();
