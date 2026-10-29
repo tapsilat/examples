@@ -37,9 +37,11 @@ https://github.com/tapsilat/tapsilat-ruby
 # Install dependencies
 bundle install
 
-# Create .env file and add your API key
+# Create .env file and add your credentials
 cp .env.example .env
-# Edit .env and set TAPSILAT_API_KEY value
+# Edit .env and set:
+# TAPSILAT_API_KEY=your_key_here
+# TAPSILAT_WEBHOOK_SECRET=your_webhook_secret_here
 
 # Start the application
 bundle exec ruby app.rb
@@ -49,7 +51,7 @@ The application will run at `http://localhost:8080` (or the port specified in yo
 
 ## Prerequisites
 
-- Ruby 2.6.0 or higher
+- Ruby 3.0 or higher
 - Bundler
 - Tapsilat API credentials
 
