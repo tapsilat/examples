@@ -1,2 +1,35 @@
-target
+# Build Outputs
+target/
+build/
+*.class
+
+# Package Artifacts
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Environment & Secrets
 .env
+.env.local
+!.env.example
+
+# Runtime & Callbacks
+webhooks/
+logs/
+*.log
+hs_err_pid*
+
+# IDE & Editor Files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Operating System Files
+.DS_Store
+._*

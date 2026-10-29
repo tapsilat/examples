@@ -5,7 +5,9 @@ import com.tapsilat.builder.OrderRequestBuilder;
 import com.tapsilat.exception.TapsilatException;
 import com.tapsilat.model.common.*;
 import com.tapsilat.model.order.*;
+import com.tapsilat.model.elements.ElementsSessionCreateRequest;
 import com.tapsilat.model.subscription.*;
+import io.github.cdimascio.dotenv.Dotenv;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -76,9 +78,7 @@ public class ApiController {
                     .currency((String) data.getOrDefault("currency", "TRY"))
                     .locale((String) data.getOrDefault("locale", "tr"))
                     .buyer(buyer)
-                    .description((String) data.getOrDefault("description", "Dashboard Order"))
                     .conversationId((String) data.getOrDefault("conversation_id", "CONV_" + System.currentTimeMillis()))
-                    .callbackUrl(baseUrl + "/api/callback")
                     .paymentSuccessUrl(baseUrl + "/payment/success")
                     .paymentFailureUrl(baseUrl + "/payment/failure")
                     .threeDForce(Boolean.TRUE.equals(data.get("three_d_force")))
@@ -150,7 +150,8 @@ public class ApiController {
             @RequestParam(required = false) String end_date,
             @RequestParam(required = false) String organization_id,
             @RequestParam(required = false) String related_reference_id,
-            @RequestParam(required = false) String buyer_id) {
+            @RequestParam(required = false) String buyer_id,
+            @RequestParam(required = false) Integer status) {
         try {
             // Convert empty strings to null for the SDK to ignore them
             String start = (start_date != null && !start_date.isEmpty()) ? start_date : null;
@@ -161,7 +162,7 @@ public class ApiController {
             String buyer = (buyer_id != null && !buyer_id.isEmpty()) ? buyer_id : null;
 
             Map<String, Object> response = tapsilatClient.orders().list(page, per_page, start, end, org, related,
-                    buyer);
+                    buyer, status);
             System.out.println("Fetched " + (response.containsKey("data") ? ((List<?>) response.get("data")).size() : 0)
                     + " orders.");
             return ResponseEntity.ok(response);
@@ -372,7 +373,7 @@ public class ApiController {
     @GetMapping("/term/scan")
     public ResponseEntity<?> scanTerms() {
         try {
-            Map<String, Object> orders = tapsilatClient.orders().list(1, 20, null, null, null, null, null);
+            Map<String, Object> orders = tapsilatClient.orders().list(1, 20, null, null, null, null, null, null);
             return ResponseEntity.ok(orders);
         } catch (Exception e) {
             return error(e.getMessage());
@@ -430,6 +431,110 @@ public class ApiController {
         } catch (Exception e) {
             return error(e.getMessage());
         }
+    }
+
+    // --- ELEMENTS SESSIONS ---
+    @PostMapping("/elements/sessions")
+    public ResponseEntity<?> createElementsSession(@RequestBody Map<String, Object> body) {
+        try {
+            ElementsSessionCreateRequest req = new ElementsSessionCreateRequest();
+            if (body.containsKey("purpose") && body.get("purpose") != null) {
+                req.setPurpose(body.get("purpose").toString());
+            }
+            if (body.containsKey("order_reference_id") && body.get("order_reference_id") != null) {
+                req.setOrderReferenceId(body.get("order_reference_id").toString());
+            }
+            if (body.containsKey("user_id") && body.get("user_id") != null) {
+                req.setUserId(body.get("user_id").toString());
+            }
+            if (body.containsKey("user_email") && body.get("user_email") != null) {
+                req.setUserEmail(body.get("user_email").toString());
+            }
+            if (body.containsKey("mode") && body.get("mode") != null) {
+                req.setMode(Integer.parseInt(body.get("mode").toString()));
+            }
+            if (body.containsKey("save_card") && body.get("save_card") != null) {
+                req.setSaveCard(Boolean.parseBoolean(body.get("save_card").toString()));
+            }
+            return ResponseEntity.ok(tapsilatClient.elements().createSession(req));
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/elements/sessions/{id}")
+    public ResponseEntity<?> getElementsSession(@PathVariable String id) {
+        try {
+            return ResponseEntity.ok(tapsilatClient.elements().getSession(id));
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/elements/sessions/{id}/cancel")
+    public ResponseEntity<?> cancelElementsSession(@PathVariable String id) {
+        try {
+            return ResponseEntity.ok(tapsilatClient.elements().cancelSession(id));
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    // --- ORDER ITEM PAYMENT (OIP) ---
+    @PostMapping("/order/oip")
+    public ResponseEntity<?> addOrderOip(@RequestBody Map<String, Object> body) {
+        try {
+            AddOrderOipRequest req = new AddOrderOipRequest();
+            if (body.containsKey("order_id") && body.get("order_id") != null) {
+                req.setOrderId(body.get("order_id").toString());
+            }
+            if (body.containsKey("url") && body.get("url") != null) {
+                req.setUrl(body.get("url").toString());
+            }
+            return ResponseEntity.ok(tapsilatClient.orders().addOip(req));
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    // --- WEBHOOK VERIFICATION ---
+    @PostMapping("/webhook/verify")
+    public ResponseEntity<?> verifyWebhook(
+            @RequestHeader(value = "Tapsilat-Signature", required = false) String signatureHeader,
+            @RequestBody String rawPayload) {
+        String secret = System.getenv("TAPSILAT_WEBHOOK_SECRET");
+        if (secret == null || secret.isEmpty()) {
+            Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+            secret = dotenv.get("TAPSILAT_WEBHOOK_SECRET");
+        }
+        if (secret == null || secret.isEmpty()) {
+            return error("TAPSILAT_WEBHOOK_SECRET is not configured");
+        }
+        if (signatureHeader == null || signatureHeader.isEmpty()) {
+            return error("Missing Tapsilat-Signature header");
+        }
+
+        String sigToVerify = signatureHeader;
+        if (signatureHeader.contains("v1=")) {
+            for (String part : signatureHeader.split(",")) {
+                if (part.trim().startsWith("v1=")) {
+                    sigToVerify = part.trim().substring(3);
+                    break;
+                }
+            }
+        }
+
+        boolean valid = TapsilatClient.verifyWebhook(rawPayload, sigToVerify, secret);
+        Map<String, Object> res = new HashMap<>();
+        res.put("valid", valid);
+        if (valid) {
+            try {
+                res.put("event", objectMapper.readValue(rawPayload, Object.class));
+            } catch (Exception e) {
+                res.put("raw", rawPayload);
+            }
+        }
+        return ResponseEntity.ok(res);
     }
 
     private ResponseEntity<?> error(String msg) {

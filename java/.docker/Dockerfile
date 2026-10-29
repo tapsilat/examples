@@ -3,9 +3,9 @@ FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 
 # Copy SDK and install
-COPY sdks/tapsilat-java sdks/tapsilat-java
-WORKDIR /app/sdks/tapsilat-java
-RUN mvn install -DskipTests
+COPY tapsilat-java tapsilat-java
+WORKDIR /app/tapsilat-java
+RUN mvn clean install -DskipTests -Dgpg.skip
 
 # Copy Example and build
 WORKDIR /app
