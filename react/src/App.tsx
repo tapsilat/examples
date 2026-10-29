@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   TapsilatProvider,
   useTapsilatOrder,
   useTapsilatSubscription,
   useTapsilatOrganization,
-  useTapsilatHealth,
-  useTapsilatPaymentTerm,
-  useTapsilatWebhook,
   type OrderCreateRequest,
 } from '@tapsilat/tapsilat-react';
 import './App.css';
@@ -78,9 +75,8 @@ const ShopView = () => {
            const payload: OrderCreateRequest = {
                amount: total,
                currency: settings.currency as any,
-               locale: settings.locale,
+               locale: settings.locale as any,
                conversation_id: settings.conversationId,
-               description: settings.description,
                three_d_force: settings.force3d,
                enabled_installments: [1, 2, 3, 6, 9, 12],
                payment_success_url: window.location.origin + "/payment/success",
@@ -105,6 +101,7 @@ const ShopView = () => {
                    ip: "127.0.0.1"
                },
                billing_address: {
+                   billing_type: "PERSONAL",
                    contact_name: billing.contactName,
                    city: billing.city,
                    country: "Turkey",
@@ -370,7 +367,7 @@ const SubscriptionsView = () => {
                 user: { email: "sub@test.com", first_name: "Sub", last_name: "User", phone: "5551112233" },
                 billing: { contact_name: "Sub User", city: "Istanbul", country: "Turkey", address: "Sisli", zip_code: "34000" }
             });
-            if(res.checkout_url) window.location.href = res.checkout_url;
+            if((res as any)?.checkout_url) window.location.href = (res as any).checkout_url;
         } catch(e: any) { alert(e.message); }
     };
     
