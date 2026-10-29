@@ -7,6 +7,7 @@ services:
       - "5005:5005"
     environment:
       - TAPSILAT_API_KEY=${TAPSILAT_API_KEY}
+      - TAPSILAT_WEBHOOK_SECRET=${TAPSILAT_WEBHOOK_SECRET}
       - GIN_MODE=debug
       - PORT=5005
     working_dir: /app

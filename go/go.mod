@@ -6,9 +6,9 @@ toolchain go1.24.3
 
 require (
 	github.com/gin-gonic/gin v1.9.1
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/tapsilat/tapsilat-go v1.7.0
+	github.com/tapsilat/tapsilat-go v1.8.16
 )
 
 require (
@@ -37,5 +37,3 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/tapsilat/tapsilat-go => ../../sdks/tapsilat-go

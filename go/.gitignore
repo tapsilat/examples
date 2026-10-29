@@ -1,10 +1,35 @@
+# Binaries & Executables
+main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Environment & Secrets
 .env
-/logs/
+.env.local
+!.env.example
+
+# Runtime & Callbacks
+webhooks/
+logs/
 *.log
-.DS_Store
-vendor/
 tmp/
 *.tmp
+
+# Dependencies
+vendor/
+
+# IDE & Editor Files
+.idea/
+.vscode/
 *.swp
 *.swo
 *~
+
+# Operating System Files
+.DS_Store
+._*

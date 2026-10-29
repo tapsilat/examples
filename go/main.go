@@ -147,6 +147,14 @@ func main() {
 	r.POST("/api/term/update", updateOrderTermHandler)
 	r.POST("/api/term/refund", refundOrderTermHandler)
 
+	// Elements Sessions API
+	r.POST("/api/elements/sessions", createElementsSessionHandler)
+	r.GET("/api/elements/sessions/:id", getElementsSessionHandler)
+	r.POST("/api/elements/sessions/:id/cancel", cancelElementsSessionHandler)
+
+	// Order Item Payments API (OIP)
+	r.POST("/api/order/oip", addOrderOIPHandler)
+
 	// Additional Order Management
 	r.POST("/api/order/terminate", terminateOrderHandler)
 	r.POST("/api/order/manual-callback", manualCallbackHandler)
@@ -156,6 +164,9 @@ func main() {
 	if _, err := os.Stat("webhooks"); os.IsNotExist(err) {
 		os.Mkdir("webhooks", 0755)
 	}
+
+	// Webhook verification endpoint using tapsilat.VerifyWebhook & ParseWebhookEvent
+	r.POST("/api/webhook/verify", verifyWebhookHandler)
 
 	// Webhook Handlers - Save to File
 	webhookHandler := func(c *gin.Context) {
@@ -870,8 +881,7 @@ func cancelSubscriptionHandler(c *gin.Context) {
 		return
 	}
 	err = apiClient.CancelSubscription(c.Request.Context(), tapsilat.SubscriptionCancelRequest{
-		ReferenceID:    req.SubscriptionID,
-		SubscriptionID: req.SubscriptionID,
+		ReferenceID: req.SubscriptionID,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1132,4 +1142,138 @@ func getOrganizationSettingsHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, settings)
+}
+
+// Elements Sessions Handlers
+
+// createElementsSessionHandler creates a new Elements session
+func createElementsSessionHandler(c *gin.Context) {
+	var req tapsilat.ElementsSessionCreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	apiClient, err := getAPIClient()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	session, err := apiClient.CreateElementsSession(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, session)
+}
+
+// getElementsSessionHandler retrieves an Elements session by ID
+func getElementsSessionHandler(c *gin.Context) {
+	id := c.Param("id")
+	apiClient, err := getAPIClient()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	session, err := apiClient.GetElementsSession(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, session)
+}
+
+// cancelElementsSessionHandler cancels an Elements session by ID
+func cancelElementsSessionHandler(c *gin.Context) {
+	id := c.Param("id")
+	apiClient, err := getAPIClient()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	session, err := apiClient.CancelElementsSession(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, session)
+}
+
+// addOrderOIPHandler records an order item payment taken outside the checkout
+func addOrderOIPHandler(c *gin.Context) {
+	var req tapsilat.OrderOIPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	apiClient, err := getAPIClient()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	res, err := apiClient.AddOrderOIP(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+// verifyWebhookHandler verifies incoming webhook signature and parses the event
+func verifyWebhookHandler(c *gin.Context) {
+	secret := os.Getenv("TAPSILAT_WEBHOOK_SECRET")
+	if secret == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "TAPSILAT_WEBHOOK_SECRET is not configured"})
+		return
+	}
+
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+		return
+	}
+
+	signature := c.GetHeader("Tapsilat-Signature")
+	if signature == "" {
+		signature = c.GetHeader("X-Tapsilat-Signature")
+	}
+
+	isValid := tapsilat.VerifyWebhook(body, signature, secret)
+	if !isValid {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"valid": false,
+			"error": "Invalid webhook signature",
+		})
+		return
+	}
+
+	event, err := tapsilat.ParseWebhookEvent(body)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"valid":       true,
+			"parse_error": err.Error(),
+			"raw_body":    string(body),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"valid":           true,
+		"reference_id":    event.ReferenceID(),
+		"conversation_id": event.ConversationID(),
+		"status":          event.Status(),
+		"status_code":     event.StatusCode(),
+		"is_paid":         event.IsPaid(),
+		"is_failed":       event.IsFailed(),
+		"is_refunded":     event.IsRefunded(),
+	})
 }
